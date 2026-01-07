@@ -16,6 +16,7 @@ import {
   Sun,
   Moon,
   Globe,
+  RefreshCw,
 } from 'lucide-react';
 import LanguageSelector from '../ui/LanguageSelector';
 
@@ -103,7 +104,7 @@ const Sidebar = ({ mobile = false, onItemClick = () => {} }) => {
                 className={({ isActive }) =>
                   `flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                     isActive
-                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                      ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`
                 }
@@ -149,13 +150,23 @@ const Sidebar = ({ mobile = false, onItemClick = () => {} }) => {
           <LanguageSelector />
         </div>
 
-        <button
-          onClick={logout}
-          className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-        >
-          <LogOut className="w-5 h-5" />
-          <span className="text-sm font-medium">{t('auth.logout')}</span>
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => window.location.reload()}
+            className="flex items-center justify-center space-x-2 px-3 py-2 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+            title="Hard Refresh"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span className="text-xs font-medium">Refresh</span>
+          </button>
+          <button
+            onClick={logout}
+            className="flex items-center justify-center space-x-2 px-3 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="text-xs font-medium">Logout</span>
+          </button>
+        </div>
       </div>
     </div>
   );

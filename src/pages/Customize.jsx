@@ -592,7 +592,7 @@ const Customize = () => {
                                   onClick={() => setSelectedField(field)}
                                   className={`flex items-center space-x-3 p-3 rounded-lg border ${
                                     selectedField?.id === field.id
-                                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                                      ? 'border-primary-500 bg-primary-50 dark:border-primary-400 dark:bg-primary-900/50'
                                       : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                                   } cursor-pointer transition-colors`}
                                 >

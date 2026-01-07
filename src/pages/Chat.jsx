@@ -203,7 +203,7 @@ const Chat = () => {
         onClick={() => setSelectedConversation(conversation)}
         className={`w-full p-4 flex items-start gap-3 transition-all duration-200 border-b ${
           isActive
-            ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-800/50 border-l-4 border-l-primary-500'
+            ? 'bg-primary-50 dark:bg-primary-900/50 border-primary-200 dark:border-primary-800 border-l-4 border-l-primary-500 dark:border-l-primary-400'
             : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/70'
         }`}
       >

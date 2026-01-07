@@ -606,7 +606,7 @@ const Customize = () => {
               </h3>
               <div className="space-y-2">
                 {FIELD_TYPES.map((fieldType) => (
-                  <div key={fieldType.type} className="relative group">
+                  <div key={fieldType.type} className="relative">
                     <button
                       onClick={() => addField(fieldType)}
                       className="w-full flex items-center space-x-3 p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-primary-500 dark:hover:border-primary-500 transition-colors text-left"
@@ -617,47 +617,30 @@ const Customize = () => {
                           {fieldType.label}
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setHoveredFieldType(hoveredFieldType === fieldType.type ? null : fieldType.type);
-                        }}
+                      <div
+                        className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         onMouseEnter={() => setHoveredFieldType(fieldType.type)}
                         onMouseLeave={() => setHoveredFieldType(null)}
-                        className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
                         <Info className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                      </button>
+                      </div>
                     </button>
 
                     {/* Tooltip */}
                     {hoveredFieldType === fieldType.type && (
-                      <>
-                        {/* Backdrop */}
-                        <div
-                          className="fixed inset-0 bg-black bg-opacity-30 z-[9998]"
-                          onClick={() => setHoveredFieldType(null)}
-                        />
-
-                        {/* Tooltip Content */}
-                        <div className="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] w-96 p-6 bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl border-2 border-gray-700 dark:border-gray-600">
-                          <button
-                            onClick={() => setHoveredFieldType(null)}
-                            className="absolute top-3 right-3 p-1 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-700 transition-colors"
-                          >
-                            <X className="w-4 h-4 text-gray-400" />
-                          </button>
-
-                          <div className="flex items-start space-x-3 mb-3">
-                            <fieldType.icon className="w-6 h-6 text-primary-400 flex-shrink-0 mt-0.5" />
-                            <h4 className="text-base font-bold text-white">{fieldType.label}</h4>
-                          </div>
-                          <p className="text-sm text-gray-300 leading-relaxed">
-                            {fieldType.description}
-                          </p>
+                      <div
+                        className="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] w-96 max-w-[90vw] p-6 bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl border-2 border-primary-500 dark:border-primary-400"
+                        onMouseEnter={() => setHoveredFieldType(fieldType.type)}
+                        onMouseLeave={() => setHoveredFieldType(null)}
+                      >
+                        <div className="flex items-start space-x-3 mb-3">
+                          <fieldType.icon className="w-6 h-6 text-primary-400 flex-shrink-0 mt-0.5" />
+                          <h4 className="text-base font-bold text-white">{fieldType.label}</h4>
                         </div>
-                      </>
+                        <p className="text-sm text-gray-300 leading-relaxed">
+                          {fieldType.description}
+                        </p>
+                      </div>
                     )}
                   </div>
                 ))}

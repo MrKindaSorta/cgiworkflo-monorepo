@@ -1,0 +1,8 @@
+# Cloudflare Pages Redirects for SPA
+# This file enables client-side routing for React Router
+
+# API requests proxy to Cloudflare Workers backend
+/api/* https://cgiworkflo-api.workers.dev/api/:splat 200
+
+# All other routes fallback to index.html for React Router
+/* /index.html 200

@@ -1,0 +1,135 @@
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { logger } from 'hono/logger';
+import { prettyJSON } from 'hono/pretty-json';
+import type { Env, Variables } from './types/env';
+
+const app = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// ============================================================================
+// GLOBAL MIDDLEWARE
+// ============================================================================
+
+// Logger - log all requests
+app.use('*', logger());
+
+// Pretty JSON - format JSON responses
+app.use('*', prettyJSON());
+
+// CORS - configure cross-origin requests
+app.use('*', cors({
+  origin: (origin) => {
+    const allowedOrigins = (origin) => {
+      const origins = ['http://localhost:3000', 'https://cgiworkflo.pages.dev', 'https://cgiworkflo.com', 'https://www.cgiworkflo.com'];
+      return origins.includes(origin) ? origin : origins[0];
+    };
+    return allowedOrigins(origin);
+  },
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  exposeHeaders: ['Content-Length', 'X-Request-Id'],
+  maxAge: 86400,
+  credentials: true,
+}));
+
+// ============================================================================
+// HEALTH & STATUS ENDPOINTS
+// ============================================================================
+
+app.get('/api/health', (c) => {
+  return c.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: c.env.ENVIRONMENT,
+    version: c.env.API_VERSION,
+  });
+});
+
+app.get('/api/version', (c) => {
+  return c.json({
+    version: c.env.API_VERSION || '1.0.0',
+    environment: c.env.ENVIRONMENT,
+  });
+});
+
+// ============================================================================
+// API ROUTES (To be implemented)
+// ============================================================================
+
+// TODO: Import and register routes
+// import authRoutes from './routes/auth';
+// import userRoutes from './routes/users';
+// import aarRoutes from './routes/aars';
+// import messageRoutes from './routes/messages';
+// import categoryRoutes from './routes/categories';
+// import analyticsRoutes from './routes/analytics';
+
+// app.route('/api/auth', authRoutes);
+// app.route('/api/users', userRoutes);
+// app.route('/api/aars', aarRoutes);
+// app.route('/api/conversations', messageRoutes);
+// app.route('/api/categories', categoryRoutes);
+// app.route('/api/analytics', analyticsRoutes);
+
+// Temporary stub routes
+app.get('/api/aars', (c) => {
+  return c.json({
+    message: 'AARs endpoint - To be implemented',
+    data: [],
+  });
+});
+
+app.post('/api/auth/login', async (c) => {
+  const body = await c.req.json();
+  return c.json({
+    message: 'Login endpoint - To be implemented',
+    email: body.email,
+  });
+});
+
+// ============================================================================
+// ERROR HANDLING
+// ============================================================================
+
+// 404 handler
+app.notFound((c) => {
+  return c.json(
+    {
+      error: 'Not Found',
+      path: c.req.path,
+      message: `The endpoint ${c.req.path} does not exist`,
+    },
+    404
+  );
+});
+
+// Global error handler
+app.onError((err, c) => {
+  console.error('Error:', err);
+
+  // Check if it's an HTTP exception with a status
+  if ('status' in err && typeof err.status === 'number') {
+    return c.json(
+      {
+        error: err.message,
+        details: 'cause' in err ? err.cause : undefined,
+      },
+      err.status
+    );
+  }
+
+  // Default 500 error
+  return c.json(
+    {
+      error: 'Internal Server Error',
+      message: c.env.ENVIRONMENT === 'development' ? err.message : 'An unexpected error occurred',
+    },
+    500
+  );
+});
+
+// ============================================================================
+// EXPORT
+// ============================================================================
+
+export default app;

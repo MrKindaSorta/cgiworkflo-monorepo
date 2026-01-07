@@ -1,0 +1,78 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "cgiworkflo-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Workers configuration
+workers_dev = true
+
+# Environment variables (non-sensitive)
+[vars]
+ENVIRONMENT = "production"
+API_VERSION = "v1"
+CORS_ORIGINS = "https://cgiworkflo.com,https://www.cgiworkflo.com"
+MAX_UPLOAD_SIZE_MB = "10"
+RATE_LIMIT_REQUESTS = "100"
+RATE_LIMIT_WINDOW_SECONDS = "60"
+
+# D1 Database binding
+# To create: wrangler d1 create cgiworkflo-db-production
+[[d1_databases]]
+binding = "DB"
+database_name = "cgiworkflo-db-production"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# R2 Bucket binding for photos
+# To create: wrangler r2 bucket create cgiworkflo-photos-production
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "cgiworkflo-photos-production"
+
+# KV Namespace for caching and rate limiting
+# To create: wrangler kv:namespace create "CACHE"
+[[kv_namespaces]]
+binding = "CACHE"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+# Secrets (set via `wrangler secret put <KEY>`)
+# Required secrets:
+#   - JWT_SECRET (generate with: openssl rand -base64 32)
+# Set with: wrangler secret put JWT_SECRET
+
+# Development environment
+[env.development]
+name = "cgiworkflo-api-dev"
+vars = { ENVIRONMENT = "development", CORS_ORIGINS = "http://localhost:3000" }
+
+[[env.development.d1_databases]]
+binding = "DB"
+database_name = "cgiworkflo-db-development"
+database_id = "REPLACE_WITH_YOUR_DEV_D1_DATABASE_ID"
+
+[[env.development.r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "cgiworkflo-photos-development"
+
+[[env.development.kv_namespaces]]
+binding = "CACHE"
+id = "REPLACE_WITH_YOUR_DEV_KV_ID"
+
+# Staging environment
+[env.staging]
+name = "cgiworkflo-api-staging"
+vars = { ENVIRONMENT = "staging", CORS_ORIGINS = "https://staging.cgiworkflo.com" }
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "cgiworkflo-db-staging"
+database_id = "REPLACE_WITH_YOUR_STAGING_D1_DATABASE_ID"
+
+# Build configuration
+[build]
+command = "npm run build"
+
+# Observability
+[observability]
+enabled = true
+head_sampling_rate = 1

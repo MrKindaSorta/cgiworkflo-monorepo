@@ -124,9 +124,9 @@ const DynamicField = ({ field, register, errors, watch, setValue, photos, setPho
             })}
             className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           >
-            <option value="">{field.placeholder || `Select ${field.label}`}</option>
+            <option value="" className="dark:bg-gray-700 dark:text-white">{field.placeholder || `Select ${field.label}`}</option>
             {field.options?.map((option) => (
-              <option key={option} value={option}>
+              <option key={option} value={option} className="dark:bg-gray-700 dark:text-white">
                 {option}
               </option>
             ))}
@@ -153,7 +153,7 @@ const DynamicField = ({ field, register, errors, watch, setValue, photos, setPho
             className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           >
             {field.options?.map((option) => (
-              <option key={option} value={option}>
+              <option key={option} value={option} className="dark:bg-gray-700 dark:text-white">
                 {option}
               </option>
             ))}

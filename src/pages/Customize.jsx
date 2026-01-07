@@ -505,7 +505,7 @@ const Customize = () => {
                       className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
                     >
                       {/* Section Header */}
-                      <div className="flex items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                      <div className="flex items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         <button
                           onClick={() => toggleSection(section.id)}
                           className="flex-1 flex items-center justify-between"
@@ -722,8 +722,8 @@ const Customize = () => {
                       }}
                       className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
                     >
-                      {SECTIONS.map((section) => (
-                        <option key={section.id} value={section.id}>
+                      {schema.sections.map((section) => (
+                        <option key={section.id} value={section.id} className="dark:bg-gray-800 dark:text-white">
                           {section.name}
                         </option>
                       ))}
@@ -937,9 +937,9 @@ const Customize = () => {
                                 disabled
                                 className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               >
-                                <option value="">{field.placeholder}</option>
+                                <option value="" className="dark:bg-gray-700 dark:text-white">{field.placeholder}</option>
                                 {field.options?.map((option) => (
-                                  <option key={option} value={option}>
+                                  <option key={option} value={option} className="dark:bg-gray-700 dark:text-white">
                                     {option}
                                   </option>
                                 ))}

@@ -20,7 +20,7 @@ const LanguageSelector = () => {
         className="appearance-none bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-primary-500"
       >
         {languages.map((lang) => (
-          <option key={lang.code} value={lang.code}>
+          <option key={lang.code} value={lang.code} className="dark:bg-gray-700 dark:text-gray-300">
             {lang.name}
           </option>
         ))}

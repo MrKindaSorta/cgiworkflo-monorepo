@@ -45,9 +45,9 @@ const BrowseAARs = () => {
             onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
             className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
           >
-            <option value="date">Latest</option>
-            <option value="upvotes">Most Upvoted</option>
-            <option value="views">Most Viewed</option>
+            <option value="date" className="dark:bg-gray-700 dark:text-white">Latest</option>
+            <option value="upvotes" className="dark:bg-gray-700 dark:text-white">Most Upvoted</option>
+            <option value="views" className="dark:bg-gray-700 dark:text-white">Most Viewed</option>
           </select>
         </div>
       </div>

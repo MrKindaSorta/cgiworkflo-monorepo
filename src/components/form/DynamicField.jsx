@@ -1,10 +1,28 @@
-import { Upload, X } from 'lucide-react';
+import { Upload, X, Check } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { useTheme } from '../../contexts/ThemeContext';
-import Select from 'react-select';
+import Select, { components } from 'react-select';
 import SmartSelect from './SmartSelect';
 import DualField from './DualField';
 import TripleField from './TripleField';
+
+// Custom Option component with checkbox for multiselect
+const CheckboxOption = (props) => {
+  return (
+    <components.Option {...props}>
+      <div className="flex items-center space-x-3">
+        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+          props.isSelected
+            ? 'bg-primary-500 border-primary-500'
+            : 'border-gray-400 dark:border-gray-500'
+        }`}>
+          {props.isSelected && <Check className="w-3 h-3 text-white" />}
+        </div>
+        <span className="flex-1">{props.label}</span>
+      </div>
+    </components.Option>
+  );
+};
 
 const DynamicField = ({ field, register, errors, watch, setValue, photos, setPhotos }) => {
   const fieldValue = watch(field.id);
@@ -148,7 +166,7 @@ const DynamicField = ({ field, register, errors, watch, setValue, photos, setPho
       const options = (field.options || []).map((opt) => ({ value: opt, label: opt }));
       const selectValue = (fieldValue || []).map((v) => ({ value: v, label: v }));
 
-      // Custom styles for dark mode
+      // Custom styles for dark mode with mobile-optimized touch targets
       const customStyles = {
         control: (base, state) => ({
           ...base,
@@ -157,7 +175,7 @@ const DynamicField = ({ field, register, errors, watch, setValue, photos, setPho
             ? theme === 'dark' ? '#3b82f6' : '#3b82f6'
             : theme === 'dark' ? '#4b5563' : '#d1d5db',
           color: theme === 'dark' ? '#ffffff' : '#111827',
-          minHeight: '48px',
+          minHeight: '52px', // Larger for mobile touch
           boxShadow: state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.5)' : 'none',
           '&:hover': {
             borderColor: theme === 'dark' ? '#6b7280' : '#9ca3af',
@@ -172,34 +190,36 @@ const DynamicField = ({ field, register, errors, watch, setValue, photos, setPho
         menuList: (base) => ({
           ...base,
           backgroundColor: theme === 'dark' ? '#374151' : '#ffffff',
+          maxHeight: '300px', // More options visible
         }),
         option: (base, state) => ({
           ...base,
-          backgroundColor: state.isSelected
-            ? theme === 'dark' ? '#1f2937' : '#dbeafe'
-            : state.isFocused
+          backgroundColor: state.isFocused
             ? theme === 'dark' ? '#4b5563' : '#f3f4f6'
             : theme === 'dark' ? '#374151' : '#ffffff',
-          color: state.isSelected
-            ? theme === 'dark' ? '#ffffff' : '#1e40af'
-            : theme === 'dark' ? '#ffffff' : '#111827',
+          color: theme === 'dark' ? '#ffffff' : '#111827',
           cursor: 'pointer',
-          padding: '12px',
+          padding: '14px', // Larger touch target for mobile
+          minHeight: '48px', // 44px+ minimum for mobile
           '&:active': {
-            backgroundColor: theme === 'dark' ? '#1f2937' : '#bfdbfe',
+            backgroundColor: theme === 'dark' ? '#374151' : '#e5e7eb',
           },
         }),
         multiValue: (base) => ({
           ...base,
           backgroundColor: theme === 'dark' ? '#1f2937' : '#dbeafe',
+          minHeight: '32px', // Larger tags for mobile
         }),
         multiValueLabel: (base) => ({
           ...base,
           color: theme === 'dark' ? '#ffffff' : '#1e40af',
+          fontSize: '14px',
+          padding: '6px 8px',
         }),
         multiValueRemove: (base) => ({
           ...base,
           color: theme === 'dark' ? '#9ca3af' : '#6b7280',
+          padding: '0 6px',
           '&:hover': {
             backgroundColor: theme === 'dark' ? '#ef4444' : '#fee2e2',
             color: theme === 'dark' ? '#ffffff' : '#991b1b',
@@ -227,10 +247,16 @@ const DynamicField = ({ field, register, errors, watch, setValue, photos, setPho
             value={selectValue}
             onChange={(selected) => setValue(field.id, (selected || []).map((s) => s.value))}
             placeholder={field.placeholder || `Select ${field.label}`}
+            closeMenuOnSelect={false}
+            hideSelectedOptions={false}
+            components={{ Option: CheckboxOption }}
             styles={customStyles}
             className="react-select-container"
             classNamePrefix="react-select"
           />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Click options to select/deselect. Dropdown stays open.
+          </p>
           {errors[field.id] && (
             <p className="text-red-500 text-sm mt-1">{errors[field.id].message}</p>
           )}

@@ -1,5 +1,6 @@
 import { Upload, X } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
+import SmartSelect from './SmartSelect';
 
 const DynamicField = ({ field, register, errors, watch, setValue, photos, setPhotos }) => {
   const fieldValue = watch(field.id);
@@ -165,6 +166,17 @@ const DynamicField = ({ field, register, errors, watch, setValue, photos, setPho
             <p className="text-red-500 text-sm mt-1">{errors[field.id].message}</p>
           )}
         </div>
+      );
+
+    case 'smartselect':
+    case 'smartmultiselect':
+      return (
+        <SmartSelect
+          field={field}
+          value={fieldValue}
+          onChange={(newValue) => setValue(field.id, newValue)}
+          error={errors[field.id]?.message}
+        />
       );
 
     case 'date':

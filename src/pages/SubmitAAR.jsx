@@ -97,6 +97,7 @@ const SubmitAAR = () => {
           break;
 
         case 'select':
+        case 'smartselect':
         case 'date':
           fieldSchema = z.string();
           if (field.required) {
@@ -107,6 +108,7 @@ const SubmitAAR = () => {
           break;
 
         case 'multiselect':
+        case 'smartmultiselect':
           fieldSchema = z.array(z.string());
           if (field.required) {
             fieldSchema = fieldSchema.min(1, `At least one ${field.label} is required`);

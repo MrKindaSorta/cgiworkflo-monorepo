@@ -21,6 +21,8 @@ import {
   FolderPlus,
   Edit2,
   X,
+  Sparkles,
+  Layers,
 } from 'lucide-react';
 
 // Field type definitions
@@ -30,6 +32,8 @@ const FIELD_TYPES = [
   { type: 'number', icon: Hash, label: 'Number', group: 'Basic' },
   { type: 'select', icon: List, label: 'Dropdown', group: 'Basic' },
   { type: 'multiselect', icon: CheckSquare, label: 'Multi-Select', group: 'Basic' },
+  { type: 'smartselect', icon: Sparkles, label: 'Smart Dropdown', group: 'Smart' },
+  { type: 'smartmultiselect', icon: Layers, label: 'Smart Multi-Select', group: 'Smart' },
   { type: 'date', icon: Calendar, label: 'Date', group: 'Basic' },
   { type: 'file', icon: Upload, label: 'File Upload', group: 'Basic' },
 ];
@@ -193,6 +197,9 @@ const Customize = () => {
       section: 'basic',
       ...(fieldType.type === 'select' || fieldType.type === 'multiselect'
         ? { options: ['Option 1', 'Option 2', 'Option 3'] }
+        : {}),
+      ...(fieldType.type === 'smartselect' || fieldType.type === 'smartmultiselect'
+        ? { options: [], allowCreate: true }
         : {}),
       ...(fieldType.type === 'file' ? { multiple: false, accept: 'image/*' } : {}),
       ...(fieldType.type === 'number' ? { validation: { min: 0 } } : {}),
@@ -765,6 +772,28 @@ const Customize = () => {
                     </div>
                   )}
 
+                  {/* Options for smart select/multiselect */}
+                  {(selectedField.type === 'smartselect' || selectedField.type === 'smartmultiselect') && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Initial Options (one per line)
+                      </label>
+                      <textarea
+                        value={selectedField.options?.join('\n') || ''}
+                        onChange={(e) =>
+                          updateField(selectedField.id, {
+                            options: e.target.value.split('\n').filter((o) => o.trim()),
+                          })
+                        }
+                        rows={5}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Users can search and create new options when submitting AARs
+                      </p>
+                    </div>
+                  )}
+
                   {/* Validation for number */}
                   {selectedField.type === 'number' && (
                     <>
@@ -960,6 +989,16 @@ const Customize = () => {
                                   </option>
                                 ))}
                               </select>
+                            )}
+
+                            {(field.type === 'smartselect' || field.type === 'smartmultiselect') && (
+                              <div className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white flex items-center justify-between">
+                                <span className="text-gray-500 dark:text-gray-400">{field.placeholder || 'Search or create...'}</span>
+                                <div className="flex items-center space-x-1">
+                                  <Sparkles className="w-4 h-4 text-primary-500" />
+                                  <span className="text-xs text-primary-600 dark:text-primary-400 font-medium">Smart</span>
+                                </div>
+                              </div>
                             )}
 
                             {field.type === 'date' && (

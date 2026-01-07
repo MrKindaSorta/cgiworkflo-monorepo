@@ -24,6 +24,8 @@ import {
   X,
   Sparkles,
   Layers,
+  Split,
+  ListPlus,
 } from 'lucide-react';
 
 // Field type definitions
@@ -33,10 +35,12 @@ const FIELD_TYPES = [
   { type: 'number', icon: Hash, label: 'Number', group: 'Basic' },
   { type: 'select', icon: List, label: 'Dropdown', group: 'Basic' },
   { type: 'multiselect', icon: CheckSquare, label: 'Multi-Select', group: 'Basic' },
-  { type: 'smartselect', icon: Sparkles, label: 'Smart Dropdown', group: 'Smart' },
-  { type: 'smartmultiselect', icon: Layers, label: 'Smart Multi-Select', group: 'Smart' },
   { type: 'date', icon: Calendar, label: 'Date', group: 'Basic' },
   { type: 'file', icon: Upload, label: 'File Upload', group: 'Basic' },
+  { type: 'smartselect', icon: Sparkles, label: 'Smart Dropdown', group: 'Smart' },
+  { type: 'smartmultiselect', icon: Layers, label: 'Smart Multi-Select', group: 'Smart' },
+  { type: 'dualfield', icon: Split, label: 'Custom Dual Field', group: 'Advanced' },
+  { type: 'multidualfield', icon: ListPlus, label: 'Multi Custom Dual Field', group: 'Advanced' },
 ];
 
 // Section definitions for organizing fields
@@ -253,6 +257,9 @@ const Customize = () => {
         : {}),
       ...(fieldType.type === 'smartselect' || fieldType.type === 'smartmultiselect'
         ? { options: [], allowCreate: true }
+        : {}),
+      ...(fieldType.type === 'dualfield' || fieldType.type === 'multidualfield'
+        ? { options: [], unitOptions: ['Unit 1', 'Unit 2'], unitLabel: 'Unit', allowCreate: true }
         : {}),
       ...(fieldType.type === 'file' ? { multiple: false, accept: 'image/*' } : {}),
       ...(fieldType.type === 'number' ? { validation: { min: 0 } } : {}),
@@ -911,6 +918,122 @@ const Customize = () => {
                     </div>
                   )}
 
+                  {/* Options for dual field types */}
+                  {(selectedField.type === 'dualfield' || selectedField.type === 'multidualfield') && (
+                    <>
+                      {/* Value Options (Smart Dropdown) */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Value Options (Searchable)
+                        </label>
+                        <div className="space-y-2">
+                          {(selectedField.options || []).map((option, index) => (
+                            <div key={index} className="flex items-center space-x-2">
+                              <input
+                                type="text"
+                                value={option}
+                                onChange={(e) => {
+                                  const newOptions = [...(selectedField.options || [])];
+                                  newOptions[index] = e.target.value;
+                                  updateField(selectedField.id, { options: newOptions });
+                                }}
+                                placeholder={`Option ${index + 1}`}
+                                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                              />
+                              <button
+                                onClick={() => {
+                                  const newOptions = (selectedField.options || []).filter((_, i) => i !== index);
+                                  updateField(selectedField.id, { options: newOptions });
+                                }}
+                                className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => {
+                              const newOptions = [...(selectedField.options || []), ''];
+                              updateField(selectedField.id, { options: newOptions });
+                            }}
+                            className="w-full py-2 px-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors flex items-center justify-center space-x-2"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span className="text-sm font-medium">Add Value Option</span>
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                          Users can search and create new values (e.g., color names)
+                        </p>
+                      </div>
+
+                      {/* Unit Label */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Unit Label
+                        </label>
+                        <input
+                          type="text"
+                          value={selectedField.unitLabel || 'Unit'}
+                          onChange={(e) =>
+                            updateField(selectedField.id, { unitLabel: e.target.value })
+                          }
+                          placeholder="e.g., Unit, Measurement, Size"
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Label for the unit dropdown
+                        </p>
+                      </div>
+
+                      {/* Unit Options (Fixed Dropdown) */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Unit Options (Fixed)
+                        </label>
+                        <div className="space-y-2">
+                          {(selectedField.unitOptions || []).map((option, index) => (
+                            <div key={index} className="flex items-center space-x-2">
+                              <input
+                                type="text"
+                                value={option}
+                                onChange={(e) => {
+                                  const newOptions = [...(selectedField.unitOptions || [])];
+                                  newOptions[index] = e.target.value;
+                                  updateField(selectedField.id, { unitOptions: newOptions });
+                                }}
+                                placeholder={`Unit ${index + 1}`}
+                                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                              />
+                              <button
+                                onClick={() => {
+                                  const newOptions = (selectedField.unitOptions || []).filter((_, i) => i !== index);
+                                  updateField(selectedField.id, { unitOptions: newOptions });
+                                }}
+                                className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => {
+                              const newOptions = [...(selectedField.unitOptions || []), ''];
+                              updateField(selectedField.id, { unitOptions: newOptions });
+                            }}
+                            className="w-full py-2 px-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors flex items-center justify-center space-x-2"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span className="text-sm font-medium">Add Unit Option</span>
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                          Fixed unit options (e.g., mL, Quart, oz, grams, kg)
+                        </p>
+                      </div>
+                    </>
+                  )}
+
                   {/* Validation for number */}
                   {selectedField.type === 'number' && (
                     <>
@@ -1117,7 +1240,10 @@ const Customize = () => {
                           <div
                             key={field.id}
                             className={
-                              field.type === 'textarea' || field.type === 'file'
+                              field.type === 'textarea' ||
+                              field.type === 'file' ||
+                              field.type === 'dualfield' ||
+                              field.type === 'multidualfield'
                                 ? 'md:col-span-2'
                                 : ''
                             }
@@ -1184,6 +1310,34 @@ const Customize = () => {
                                 disabled
                                 className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               />
+                            )}
+
+                            {(field.type === 'dualfield' || field.type === 'multidualfield') && (
+                              <div className="space-y-3">
+                                <div className="flex items-center space-x-2">
+                                  <div className="flex-1 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex items-center justify-between">
+                                    <span>{field.placeholder || 'Search or create...'}</span>
+                                    <Sparkles className="w-4 h-4 text-primary-500" />
+                                  </div>
+                                  <select
+                                    disabled
+                                    className="w-32 px-3 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                                  >
+                                    <option className="dark:bg-gray-700 dark:text-white">
+                                      {field.unitLabel || 'Unit'}
+                                    </option>
+                                  </select>
+                                </div>
+                                {field.type === 'multidualfield' && (
+                                  <button
+                                    disabled
+                                    className="w-full py-2 px-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 flex items-center justify-center space-x-2"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                    <span className="text-sm font-medium">Add Another</span>
+                                  </button>
+                                )}
+                              </div>
                             )}
 
                             {field.type === 'file' && (

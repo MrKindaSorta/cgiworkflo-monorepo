@@ -1,6 +1,7 @@
 import { Upload, X } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import SmartSelect from './SmartSelect';
+import DualField from './DualField';
 
 const DynamicField = ({ field, register, errors, watch, setValue, photos, setPhotos }) => {
   const fieldValue = watch(field.id);
@@ -172,6 +173,17 @@ const DynamicField = ({ field, register, errors, watch, setValue, photos, setPho
     case 'smartmultiselect':
       return (
         <SmartSelect
+          field={field}
+          value={fieldValue}
+          onChange={(newValue) => setValue(field.id, newValue)}
+          error={errors[field.id]?.message}
+        />
+      );
+
+    case 'dualfield':
+    case 'multidualfield':
+      return (
+        <DualField
           field={field}
           value={fieldValue}
           onChange={(newValue) => setValue(field.id, newValue)}

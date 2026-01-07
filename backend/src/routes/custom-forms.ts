@@ -23,6 +23,8 @@ const fieldValidator = z.object({
     'smartmultiselect',
     'date',
     'file',
+    'dualfield',
+    'multidualfield',
   ]),
   label: z.string(),
   placeholder: z.string().optional(),
@@ -42,6 +44,8 @@ const fieldValidator = z.object({
   multiple: z.boolean().optional(),
   accept: z.string().optional(),
   allowCreate: z.boolean().optional(),
+  unitOptions: z.array(z.string()).optional(),
+  unitLabel: z.string().optional(),
 });
 
 // Section validation schema

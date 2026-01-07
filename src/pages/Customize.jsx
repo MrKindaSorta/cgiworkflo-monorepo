@@ -590,22 +590,38 @@ const Customize = () => {
                                 <div
                                   key={field.id}
                                   onClick={() => setSelectedField(field)}
-                                  className={`flex items-center space-x-3 p-3 rounded-lg border ${
+                                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                                     selectedField?.id === field.id
-                                      ? 'border-primary-500 bg-primary-50 dark:border-primary-400 dark:bg-primary-900/50'
+                                      ? 'border-primary-500 bg-primary-100 dark:border-primary-500 dark:bg-gray-700'
                                       : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                                  } cursor-pointer transition-colors`}
+                                  }`}
                                 >
-                                  <GripVertical className="w-4 h-4 text-gray-400 cursor-move" />
-                                  <FieldIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                                  <GripVertical className={`w-4 h-4 cursor-move ${
+                                    selectedField?.id === field.id
+                                      ? 'text-primary-600 dark:text-primary-400'
+                                      : 'text-gray-400'
+                                  }`} />
+                                  <FieldIcon className={`w-5 h-5 ${
+                                    selectedField?.id === field.id
+                                      ? 'text-primary-600 dark:text-primary-400'
+                                      : 'text-gray-600 dark:text-gray-400'
+                                  }`} />
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                    <p className={`text-sm font-medium truncate ${
+                                      selectedField?.id === field.id
+                                        ? 'text-primary-900 dark:text-white'
+                                        : 'text-gray-900 dark:text-white'
+                                    }`}>
                                       {field.label}
                                       {field.required && (
                                         <span className="text-red-500 ml-1">*</span>
                                       )}
                                     </p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                    <p className={`text-xs truncate ${
+                                      selectedField?.id === field.id
+                                        ? 'text-primary-700 dark:text-primary-300'
+                                        : 'text-gray-500 dark:text-gray-400'
+                                    }`}>
                                       {field.type}
                                     </p>
                                   </div>

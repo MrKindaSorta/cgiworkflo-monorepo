@@ -1,0 +1,124 @@
+{
+  "app": {
+    "name": "CGIWorkFlo",
+    "tagline": "Gestión de Informes de Acción"
+  },
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "submit": "Enviar",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "upload": "Subir",
+    "download": "Descargar"
+  },
+  "auth": {
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "name": "Nombre",
+    "email": "Correo electrónico",
+    "role": "Rol",
+    "address": "Dirección",
+    "phone": "Teléfono",
+    "selectRole": "Seleccionar rol",
+    "admin": "Administrador",
+    "manager": "Gerente",
+    "franchisee": "Franquiciado",
+    "employee": "Empleado"
+  },
+  "nav": {
+    "dashboard": "Tablero",
+    "browse": "Explorar AARs",
+    "submit": "Enviar AAR",
+    "chat": "Chat",
+    "profile": "Perfil",
+    "analytics": "Analítica",
+    "branding": "Marca",
+    "customForms": "Formularios personalizados",
+    "users": "Usuarios"
+  },
+  "dashboard": {
+    "title": "Tablero",
+    "recentAARs": "AARs recientes",
+    "stats": {
+      "today": "Hoy",
+      "week": "Esta semana",
+      "month": "Este mes",
+      "views": "Vistas",
+      "aars": "AARs"
+    }
+  },
+  "aar": {
+    "title": "Informe de Acción",
+    "submit": "Enviar AAR",
+    "browse": "Explorar AARs",
+    "category": "Categoría",
+    "subCategory": "Marca",
+    "model": "Modelo",
+    "year": "Año",
+    "color": "Color",
+    "material": "Material",
+    "damageType": "Tipo de daño",
+    "damageDescription": "Descripción del daño",
+    "jobType": "Tipo de trabajo",
+    "repairTime": "Tiempo de reparación (horas)",
+    "toolsUsed": "Herramientas utilizadas",
+    "notes": "Notas",
+    "processDescription": "Descripción del proceso",
+    "paintDyeMix": "Mezcla de pintura/tinte",
+    "cost": "Costo",
+    "photos": "Fotos",
+    "before": "Antes",
+    "after": "Después",
+    "upvote": "Voto positivo",
+    "downvote": "Voto negativo",
+    "comment": "Comentario",
+    "comments": "Comentarios",
+    "views": "Vistas"
+  },
+  "chat": {
+    "title": "Chat",
+    "newMessage": "Nuevo mensaje",
+    "typeMessage": "Escribe un mensaje...",
+    "send": "Enviar",
+    "conversations": "Conversaciones"
+  },
+  "profile": {
+    "title": "Perfil",
+    "myAARs": "Mis AARs",
+    "settings": "Configuración",
+    "preferences": "Preferencias"
+  },
+  "analytics": {
+    "title": "Analítica",
+    "overview": "Resumen",
+    "materials": "Materiales utilizados",
+    "categories": "Categorías",
+    "trends": "Tendencias"
+  },
+  "branding": {
+    "title": "Marca",
+    "logo": "Logo",
+    "colors": "Colores de marca",
+    "uploadLogo": "Subir logo"
+  },
+  "settings": {
+    "title": "Configuración",
+    "theme": "Tema",
+    "language": "Idioma",
+    "units": "Unidades",
+    "lightMode": "Modo claro",
+    "darkMode": "Modo oscuro",
+    "area": "Área",
+    "liquid": "Líquido"
+  }
+}

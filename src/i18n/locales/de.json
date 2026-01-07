@@ -1,0 +1,124 @@
+{
+  "app": {
+    "name": "CGIWorkFlo",
+    "tagline": "Verwaltung von Aktionsberichten"
+  },
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "submit": "Einreichen",
+    "search": "Suchen",
+    "filter": "Filtern",
+    "loading": "Laden...",
+    "error": "Fehler",
+    "success": "Erfolg",
+    "close": "Schließen",
+    "confirm": "Bestätigen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "upload": "Hochladen",
+    "download": "Herunterladen"
+  },
+  "auth": {
+    "login": "Anmelden",
+    "logout": "Abmelden",
+    "name": "Name",
+    "email": "E-Mail",
+    "role": "Rolle",
+    "address": "Adresse",
+    "phone": "Telefon",
+    "selectRole": "Rolle wählen",
+    "admin": "Administrator",
+    "manager": "Manager",
+    "franchisee": "Franchisenehmer",
+    "employee": "Mitarbeiter"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "browse": "AARs durchsuchen",
+    "submit": "AAR einreichen",
+    "chat": "Chat",
+    "profile": "Profil",
+    "analytics": "Analytics",
+    "branding": "Branding",
+    "customForms": "Benutzerdefinierte Formulare",
+    "users": "Benutzer"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "recentAARs": "Neueste AARs",
+    "stats": {
+      "today": "Heute",
+      "week": "Diese Woche",
+      "month": "Diesen Monat",
+      "views": "Ansichten",
+      "aars": "AARs"
+    }
+  },
+  "aar": {
+    "title": "Aktionsbericht",
+    "submit": "AAR einreichen",
+    "browse": "AARs durchsuchen",
+    "category": "Kategorie",
+    "subCategory": "Marke",
+    "model": "Modell",
+    "year": "Jahr",
+    "color": "Farbe",
+    "material": "Material",
+    "damageType": "Schadenstyp",
+    "damageDescription": "Schadensbeschreibung",
+    "jobType": "Auftragstyp",
+    "repairTime": "Reparaturzeit (Stunden)",
+    "toolsUsed": "Verwendete Werkzeuge",
+    "notes": "Notizen",
+    "processDescription": "Prozessbeschreibung",
+    "paintDyeMix": "Farb-/Farbstoffmischung",
+    "cost": "Kosten",
+    "photos": "Fotos",
+    "before": "Vorher",
+    "after": "Nachher",
+    "upvote": "Upvote",
+    "downvote": "Downvote",
+    "comment": "Kommentar",
+    "comments": "Kommentare",
+    "views": "Ansichten"
+  },
+  "chat": {
+    "title": "Chat",
+    "newMessage": "Neue Nachricht",
+    "typeMessage": "Nachricht eingeben...",
+    "send": "Senden",
+    "conversations": "Unterhaltungen"
+  },
+  "profile": {
+    "title": "Profil",
+    "myAARs": "Meine AARs",
+    "settings": "Einstellungen",
+    "preferences": "Präferenzen"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "overview": "Übersicht",
+    "materials": "Verwendete Materialien",
+    "categories": "Kategorien",
+    "trends": "Trends"
+  },
+  "branding": {
+    "title": "Branding",
+    "logo": "Logo",
+    "colors": "Markenfarben",
+    "uploadLogo": "Logo hochladen"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "theme": "Thema",
+    "language": "Sprache",
+    "units": "Einheiten",
+    "lightMode": "Heller Modus",
+    "darkMode": "Dunkler Modus",
+    "area": "Fläche",
+    "liquid": "Flüssigkeit"
+  }
+}

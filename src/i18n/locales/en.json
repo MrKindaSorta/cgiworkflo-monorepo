@@ -1,0 +1,138 @@
+{
+  "app": {
+    "name": "CGIWorkFlo",
+    "tagline": "After Action Reports Management"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "submit": "Submit",
+    "search": "Search",
+    "filter": "Filter",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "close": "Close",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "upload": "Upload",
+    "download": "Download"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "address": "Address",
+    "phone": "Phone",
+    "selectRole": "Select Role",
+    "admin": "Admin",
+    "manager": "Manager",
+    "franchisee": "Franchisee",
+    "employee": "Employee"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "browse": "Browse AARs",
+    "submit": "Submit AAR",
+    "chat": "Chat",
+    "profile": "Profile",
+    "analytics": "Analytics",
+    "branding": "Branding",
+    "customForms": "Custom Forms",
+    "users": "Users"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "recentAARs": "Recent AARs",
+    "stats": {
+      "today": "Today",
+      "week": "This Week",
+      "month": "This Month",
+      "views": "Views",
+      "aars": "AARs"
+    }
+  },
+  "aar": {
+    "title": "After Action Report",
+    "submit": "Submit AAR",
+    "browse": "Browse AARs",
+    "category": "Category",
+    "subCategory": "Make/Brand",
+    "model": "Model",
+    "year": "Year",
+    "color": "Color",
+    "material": "Material",
+    "damageType": "Damage Type",
+    "damageDescription": "Damage Description",
+    "jobType": "Job Type",
+    "repairTime": "Repair Time (hours)",
+    "toolsUsed": "Tools Used",
+    "notes": "Notes",
+    "processDescription": "Process Description",
+    "paintDyeMix": "Paint/Dye Mix",
+    "cost": "Cost",
+    "photos": "Photos",
+    "before": "Before",
+    "after": "After",
+    "upvote": "Upvote",
+    "downvote": "Downvote",
+    "comment": "Comment",
+    "comments": "Comments",
+    "views": "Views"
+  },
+  "chat": {
+    "title": "Chat",
+    "newMessage": "New Message",
+    "typeMessage": "Type a message...",
+    "send": "Send",
+    "conversations": "Conversations",
+    "directMessages": "Direct Messages",
+    "groups": "Groups",
+    "openChat": "Open Chat",
+    "noDMs": "No direct messages yet",
+    "noGroups": "No groups yet",
+    "startChatting": "Start chatting with your team",
+    "online": "Online",
+    "offline": "Offline",
+    "typing": "typing...",
+    "you": "You",
+    "selectConversation": "Select a conversation to start chatting",
+    "unreadMessages": "unread messages",
+    "today": "Today",
+    "yesterday": "Yesterday"
+  },
+  "profile": {
+    "title": "Profile",
+    "myAARs": "My AARs",
+    "settings": "Settings",
+    "preferences": "Preferences"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "overview": "Overview",
+    "materials": "Materials Used",
+    "categories": "Categories",
+    "trends": "Trends"
+  },
+  "branding": {
+    "title": "Branding",
+    "logo": "Logo",
+    "colors": "Brand Colors",
+    "uploadLogo": "Upload Logo"
+  },
+  "settings": {
+    "title": "Settings",
+    "theme": "Theme",
+    "language": "Language",
+    "units": "Units",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode",
+    "area": "Area",
+    "liquid": "Liquid"
+  }
+}

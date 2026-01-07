@@ -1,0 +1,124 @@
+{
+  "app": {
+    "name": "CGIWorkFlo",
+    "tagline": "Gestion des Rapports d'Action"
+  },
+  "common": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "submit": "Soumettre",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "close": "Fermer",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "upload": "Télécharger",
+    "download": "Télécharger"
+  },
+  "auth": {
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "name": "Nom",
+    "email": "Email",
+    "role": "Rôle",
+    "address": "Adresse",
+    "phone": "Téléphone",
+    "selectRole": "Sélectionner le rôle",
+    "admin": "Administrateur",
+    "manager": "Gestionnaire",
+    "franchisee": "Franchisé",
+    "employee": "Employé"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "browse": "Parcourir les AARs",
+    "submit": "Soumettre AAR",
+    "chat": "Chat",
+    "profile": "Profil",
+    "analytics": "Analytique",
+    "branding": "Image de marque",
+    "customForms": "Formulaires personnalisés",
+    "users": "Utilisateurs"
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "recentAARs": "AARs récents",
+    "stats": {
+      "today": "Aujourd'hui",
+      "week": "Cette semaine",
+      "month": "Ce mois",
+      "views": "Vues",
+      "aars": "AARs"
+    }
+  },
+  "aar": {
+    "title": "Rapport d'Action",
+    "submit": "Soumettre AAR",
+    "browse": "Parcourir les AARs",
+    "category": "Catégorie",
+    "subCategory": "Marque",
+    "model": "Modèle",
+    "year": "Année",
+    "color": "Couleur",
+    "material": "Matériau",
+    "damageType": "Type de dommage",
+    "damageDescription": "Description des dommages",
+    "jobType": "Type de travail",
+    "repairTime": "Temps de réparation (heures)",
+    "toolsUsed": "Outils utilisés",
+    "notes": "Notes",
+    "processDescription": "Description du processus",
+    "paintDyeMix": "Mélange de peinture/teinture",
+    "cost": "Coût",
+    "photos": "Photos",
+    "before": "Avant",
+    "after": "Après",
+    "upvote": "Vote positif",
+    "downvote": "Vote négatif",
+    "comment": "Commentaire",
+    "comments": "Commentaires",
+    "views": "Vues"
+  },
+  "chat": {
+    "title": "Chat",
+    "newMessage": "Nouveau message",
+    "typeMessage": "Tapez un message...",
+    "send": "Envoyer",
+    "conversations": "Conversations"
+  },
+  "profile": {
+    "title": "Profil",
+    "myAARs": "Mes AARs",
+    "settings": "Paramètres",
+    "preferences": "Préférences"
+  },
+  "analytics": {
+    "title": "Analytique",
+    "overview": "Vue d'ensemble",
+    "materials": "Matériaux utilisés",
+    "categories": "Catégories",
+    "trends": "Tendances"
+  },
+  "branding": {
+    "title": "Image de marque",
+    "logo": "Logo",
+    "colors": "Couleurs de marque",
+    "uploadLogo": "Télécharger le logo"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "theme": "Thème",
+    "language": "Langue",
+    "units": "Unités",
+    "lightMode": "Mode clair",
+    "darkMode": "Mode sombre",
+    "area": "Zone",
+    "liquid": "Liquide"
+  }
+}

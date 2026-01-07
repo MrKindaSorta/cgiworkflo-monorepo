@@ -1,0 +1,124 @@
+{
+  "app": {
+    "name": "CGIWorkFlo",
+    "tagline": "アクションレポート管理"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "edit": "編集",
+    "submit": "送信",
+    "search": "検索",
+    "filter": "フィルター",
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "success": "成功",
+    "close": "閉じる",
+    "confirm": "確認",
+    "back": "戻る",
+    "next": "次へ",
+    "upload": "アップロード",
+    "download": "ダウンロード"
+  },
+  "auth": {
+    "login": "ログイン",
+    "logout": "ログアウト",
+    "name": "名前",
+    "email": "メール",
+    "role": "役割",
+    "address": "住所",
+    "phone": "電話",
+    "selectRole": "役割を選択",
+    "admin": "管理者",
+    "manager": "マネージャー",
+    "franchisee": "フランチャイジー",
+    "employee": "従業員"
+  },
+  "nav": {
+    "dashboard": "ダッシュボード",
+    "browse": "AARを閲覧",
+    "submit": "AAR送信",
+    "chat": "チャット",
+    "profile": "プロフィール",
+    "analytics": "分析",
+    "branding": "ブランディング",
+    "customForms": "カスタムフォーム",
+    "users": "ユーザー"
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "recentAARs": "最近のAAR",
+    "stats": {
+      "today": "今日",
+      "week": "今週",
+      "month": "今月",
+      "views": "閲覧数",
+      "aars": "AAR"
+    }
+  },
+  "aar": {
+    "title": "アクションレポート",
+    "submit": "AAR送信",
+    "browse": "AARを閲覧",
+    "category": "カテゴリ",
+    "subCategory": "ブランド",
+    "model": "モデル",
+    "year": "年",
+    "color": "色",
+    "material": "材料",
+    "damageType": "損傷タイプ",
+    "damageDescription": "損傷説明",
+    "jobType": "作業タイプ",
+    "repairTime": "修理時間（時間）",
+    "toolsUsed": "使用ツール",
+    "notes": "メモ",
+    "processDescription": "プロセス説明",
+    "paintDyeMix": "塗料/染料ミックス",
+    "cost": "コスト",
+    "photos": "写真",
+    "before": "前",
+    "after": "後",
+    "upvote": "賛成票",
+    "downvote": "反対票",
+    "comment": "コメント",
+    "comments": "コメント",
+    "views": "閲覧数"
+  },
+  "chat": {
+    "title": "チャット",
+    "newMessage": "新しいメッセージ",
+    "typeMessage": "メッセージを入力...",
+    "send": "送信",
+    "conversations": "会話"
+  },
+  "profile": {
+    "title": "プロフィール",
+    "myAARs": "マイAAR",
+    "settings": "設定",
+    "preferences": "設定"
+  },
+  "analytics": {
+    "title": "分析",
+    "overview": "概要",
+    "materials": "使用材料",
+    "categories": "カテゴリ",
+    "trends": "トレンド"
+  },
+  "branding": {
+    "title": "ブランディング",
+    "logo": "ロゴ",
+    "colors": "ブランドカラー",
+    "uploadLogo": "ロゴをアップロード"
+  },
+  "settings": {
+    "title": "設定",
+    "theme": "テーマ",
+    "language": "言語",
+    "units": "単位",
+    "lightMode": "ライトモード",
+    "darkMode": "ダークモード",
+    "area": "面積",
+    "liquid": "液体"
+  }
+}

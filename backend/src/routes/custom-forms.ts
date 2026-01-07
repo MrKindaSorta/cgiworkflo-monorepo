@@ -35,6 +35,8 @@ const fieldValidator = z.object({
       min: z.number().optional(),
       max: z.number().optional(),
       minLength: z.number().optional(),
+      minDate: z.string().optional(),
+      maxDate: z.string().optional(),
     })
     .optional(),
   multiple: z.boolean().optional(),

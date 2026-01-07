@@ -191,6 +191,8 @@ const DynamicField = ({ field, register, errors, watch, setValue, photos, setPho
             {...register(field.id, {
               required: field.required ? `${field.label} is required` : false,
             })}
+            min={field.validation?.minDate}
+            max={field.validation?.maxDate}
             className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           />
           {errors[field.id] && (

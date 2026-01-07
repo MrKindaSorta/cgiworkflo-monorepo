@@ -732,9 +732,19 @@ const Customize = () => {
             <div className="md:col-span-3 bg-gray-50 dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 overflow-y-auto p-4">
               {selectedField ? (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                    Field Properties
-                  </h3>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                      Field Properties
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 text-xs font-medium">
+                        {selectedField.type}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        ID: {selectedField.id}
+                      </span>
+                    </div>
+                  </div>
 
                   {/* Label */}
                   <div>
@@ -812,28 +822,44 @@ const Customize = () => {
                   {(selectedField.type === 'select' || selectedField.type === 'multiselect') && (
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Options (one per line)
+                        Options
                       </label>
-                      <textarea
-                        value={selectedField.options?.join('\n') || ''}
-                        onChange={(e) =>
-                          updateField(selectedField.id, {
-                            options: e.target.value.split('\n').filter((o) => o.trim()),
-                          })
-                        }
-                        onKeyDown={(e) => {
-                          // Prevent form submission on Enter, allow newlines
-                          if (e.key === 'Enter') {
-                            e.stopPropagation();
-                          }
-                        }}
-                        rows={5}
-                        placeholder="Option 1&#10;Option 2&#10;Option 3"
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
-                      />
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Press Enter to add each new option on a new line
-                      </p>
+                      <div className="space-y-2">
+                        {(selectedField.options || []).map((option, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <input
+                              type="text"
+                              value={option}
+                              onChange={(e) => {
+                                const newOptions = [...(selectedField.options || [])];
+                                newOptions[index] = e.target.value;
+                                updateField(selectedField.id, { options: newOptions });
+                              }}
+                              placeholder={`Option ${index + 1}`}
+                              className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                            />
+                            <button
+                              onClick={() => {
+                                const newOptions = (selectedField.options || []).filter((_, i) => i !== index);
+                                updateField(selectedField.id, { options: newOptions });
+                              }}
+                              className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => {
+                            const newOptions = [...(selectedField.options || []), ''];
+                            updateField(selectedField.id, { options: newOptions });
+                          }}
+                          className="w-full py-2 px-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors flex items-center justify-center space-x-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span className="text-sm font-medium">Add Option</span>
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -841,27 +867,46 @@ const Customize = () => {
                   {(selectedField.type === 'smartselect' || selectedField.type === 'smartmultiselect') && (
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Initial Options (one per line)
+                        Initial Options
                       </label>
-                      <textarea
-                        value={selectedField.options?.join('\n') || ''}
-                        onChange={(e) =>
-                          updateField(selectedField.id, {
-                            options: e.target.value.split('\n').filter((o) => o.trim()),
-                          })
-                        }
-                        onKeyDown={(e) => {
-                          // Prevent form submission on Enter, allow newlines
-                          if (e.key === 'Enter') {
-                            e.stopPropagation();
-                          }
-                        }}
-                        rows={5}
-                        placeholder="Option 1&#10;Option 2&#10;Option 3"
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
-                      />
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Press Enter for new lines. Users can search and create options when submitting.
+                      <div className="space-y-2">
+                        {(selectedField.options || []).map((option, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <input
+                              type="text"
+                              value={option}
+                              onChange={(e) => {
+                                const newOptions = [...(selectedField.options || [])];
+                                newOptions[index] = e.target.value;
+                                updateField(selectedField.id, { options: newOptions });
+                              }}
+                              placeholder={`Option ${index + 1}`}
+                              className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                            />
+                            <button
+                              onClick={() => {
+                                const newOptions = (selectedField.options || []).filter((_, i) => i !== index);
+                                updateField(selectedField.id, { options: newOptions });
+                              }}
+                              className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => {
+                            const newOptions = [...(selectedField.options || []), ''];
+                            updateField(selectedField.id, { options: newOptions });
+                          }}
+                          className="w-full py-2 px-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors flex items-center justify-center space-x-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span className="text-sm font-medium">Add Option</span>
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Users can also search and create new options when submitting AARs
                       </p>
                     </div>
                   )}
@@ -871,37 +916,41 @@ const Customize = () => {
                     <>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Min Value
+                          Min Value (Optional)
                         </label>
                         <input
                           type="number"
-                          value={selectedField.validation?.min || ''}
+                          step="any"
+                          value={selectedField.validation?.min ?? ''}
                           onChange={(e) =>
                             updateField(selectedField.id, {
                               validation: {
                                 ...selectedField.validation,
-                                min: parseFloat(e.target.value),
+                                min: e.target.value ? parseFloat(e.target.value) : undefined,
                               },
                             })
                           }
+                          placeholder="No minimum"
                           className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
                         />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Max Value
+                          Max Value (Optional)
                         </label>
                         <input
                           type="number"
-                          value={selectedField.validation?.max || ''}
+                          step="any"
+                          value={selectedField.validation?.max ?? ''}
                           onChange={(e) =>
                             updateField(selectedField.id, {
                               validation: {
                                 ...selectedField.validation,
-                                max: parseFloat(e.target.value),
+                                max: e.target.value ? parseFloat(e.target.value) : undefined,
                               },
                             })
                           }
+                          placeholder="No maximum"
                           className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
                         />
                       </div>
@@ -912,22 +961,75 @@ const Customize = () => {
                   {selectedField.type === 'textarea' && (
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Min Length
+                        Min Length (Optional)
                       </label>
                       <input
                         type="number"
-                        value={selectedField.validation?.minLength || ''}
+                        min="0"
+                        value={selectedField.validation?.minLength ?? ''}
                         onChange={(e) =>
                           updateField(selectedField.id, {
                             validation: {
                               ...selectedField.validation,
-                              minLength: parseInt(e.target.value),
+                              minLength: e.target.value ? parseInt(e.target.value) : undefined,
                             },
                           })
                         }
+                        placeholder="No minimum"
                         className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
                       />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Minimum number of characters required
+                      </p>
                     </div>
+                  )}
+
+                  {/* Validation for date */}
+                  {selectedField.type === 'date' && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Min Date (Optional)
+                        </label>
+                        <input
+                          type="date"
+                          value={selectedField.validation?.minDate ?? ''}
+                          onChange={(e) =>
+                            updateField(selectedField.id, {
+                              validation: {
+                                ...selectedField.validation,
+                                minDate: e.target.value || undefined,
+                              },
+                            })
+                          }
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Earliest allowed date
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Max Date (Optional)
+                        </label>
+                        <input
+                          type="date"
+                          value={selectedField.validation?.maxDate ?? ''}
+                          onChange={(e) =>
+                            updateField(selectedField.id, {
+                              validation: {
+                                ...selectedField.validation,
+                                maxDate: e.target.value || undefined,
+                              },
+                            })
+                          }
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Latest allowed date
+                        </p>
+                      </div>
+                    </>
                   )}
 
                   {/* File upload settings */}
@@ -952,7 +1054,7 @@ const Customize = () => {
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Accept (file types)
+                          Accepted File Types
                         </label>
                         <input
                           type="text"
@@ -963,6 +1065,9 @@ const Customize = () => {
                           placeholder="image/*"
                           className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
                         />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Examples: image/*, .pdf, .doc,.docx, video/*
+                        </p>
                       </div>
                     </>
                   )}

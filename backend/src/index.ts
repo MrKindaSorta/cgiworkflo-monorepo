@@ -4,6 +4,9 @@ import { logger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
 import type { Env, Variables } from './types/env';
 
+// Routes
+import authRoutes from './routes/auth';
+
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // ============================================================================
@@ -50,37 +53,30 @@ app.get('/api/version', (c) => {
 });
 
 // ============================================================================
-// API ROUTES (To be implemented)
+// API ROUTES
 // ============================================================================
 
-// TODO: Import and register routes
-// import authRoutes from './routes/auth';
+// Authentication routes (public)
+app.route('/api/auth', authRoutes);
+
+// TODO: Register additional routes as they are implemented
 // import userRoutes from './routes/users';
 // import aarRoutes from './routes/aars';
 // import messageRoutes from './routes/messages';
 // import categoryRoutes from './routes/categories';
 // import analyticsRoutes from './routes/analytics';
 
-// app.route('/api/auth', authRoutes);
 // app.route('/api/users', userRoutes);
 // app.route('/api/aars', aarRoutes);
 // app.route('/api/conversations', messageRoutes);
 // app.route('/api/categories', categoryRoutes);
 // app.route('/api/analytics', analyticsRoutes);
 
-// Temporary stub routes
+// Temporary stub routes (to be replaced)
 app.get('/api/aars', (c) => {
   return c.json({
     message: 'AARs endpoint - To be implemented',
     data: [],
-  });
-});
-
-app.post('/api/auth/login', async (c) => {
-  const body = await c.req.json();
-  return c.json({
-    message: 'Login endpoint - To be implemented',
-    email: body.email,
   });
 });
 

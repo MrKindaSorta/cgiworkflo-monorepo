@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "wrangler dev --local --persist-to=.wrangler/state",
     "dev:remote": "wrangler dev",
-    "build": "tsc && esbuild src/index.ts --bundle --outdir=dist --format=esm --platform=neutral",
+    "build": "tsc && esbuild src/index.ts --bundle --outdir=dist --format=esm --platform=node",
     "deploy": "wrangler deploy",
     "deploy:staging": "wrangler deploy --env staging",
     "deploy:production": "wrangler deploy --env production",

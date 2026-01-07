@@ -3,30 +3,64 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { LogIn, Sun, Moon } from 'lucide-react';
+import { LogIn, Sun, Moon, Zap } from 'lucide-react';
 import LanguageSelector from '../components/ui/LanguageSelector';
+import { api } from '../lib/api-client';
 
 const Login = () => {
   const { t } = useTranslation();
-  const { login } = useAuth();
+  const { login, setCurrentUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    name: '',
     email: '',
-    role: 'employee',
-    address: '',
+    password: '',
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const userData = {
-      ...formData,
-      id: Date.now().toString(),
-    };
-    login(userData);
-    navigate('/');
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await api.auth.login(formData.email, formData.password);
+      const { user, token } = response.data;
+
+      // Store token and user
+      localStorage.setItem('authToken', token);
+      login(user);
+
+      navigate('/');
+    } catch (err) {
+      console.error('Login error:', err);
+      setError(err.response?.data?.error || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDevLogin = async (role) => {
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await api.auth.devLogin(role);
+      const { user, token } = response.data;
+
+      // Store token and user
+      localStorage.setItem('authToken', token);
+      login(user);
+
+      navigate('/');
+    } catch (err) {
+      console.error('Dev login error:', err);
+      setError(err.response?.data?.error || 'Dev login failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -65,25 +99,6 @@ const Login = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label
-                htmlFor="name"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                {t('auth.name')}
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                required
-                value={formData.name}
-                onChange={handleChange}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="John Doe"
-              />
-            </div>
-
-            <div>
-              <label
                 htmlFor="email"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
               >
@@ -97,59 +112,102 @@ const Login = () => {
                 value={formData.email}
                 onChange={handleChange}
                 className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="john@example.com"
+                placeholder="admin@demo.com"
+                disabled={loading}
               />
             </div>
 
             <div>
               <label
-                htmlFor="role"
+                htmlFor="password"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
               >
-                {t('auth.selectRole')}
-              </label>
-              <select
-                id="role"
-                name="role"
-                required
-                value={formData.role}
-                onChange={handleChange}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="employee">{t('auth.employee')}</option>
-                <option value="franchisee">{t('auth.franchisee')}</option>
-                <option value="manager">{t('auth.manager')}</option>
-                <option value="admin">{t('auth.admin')}</option>
-              </select>
-            </div>
-
-            <div>
-              <label
-                htmlFor="address"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                {t('auth.address')}
+                Password
               </label>
               <input
-                type="text"
-                id="address"
-                name="address"
+                type="password"
+                id="password"
+                name="password"
                 required
-                value={formData.address}
+                value={formData.password}
                 onChange={handleChange}
                 className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="123 Main St, City, State"
+                placeholder="Enter password"
+                disabled={loading}
               />
             </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </div>
+            )}
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center space-x-2 bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-4 rounded-lg transition-colors focus:ring-4 focus:ring-primary-500/50"
+              disabled={loading}
+              className="w-full flex items-center justify-center space-x-2 bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-4 rounded-lg transition-colors focus:ring-4 focus:ring-primary-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <LogIn className="w-5 h-5" />
-              <span>{t('auth.login')}</span>
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Logging in...</span>
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-5 h-5" />
+                  <span>{t('auth.login')}</span>
+                </>
+              )}
             </button>
           </form>
+
+          {/* Dev Login Buttons */}
+          <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2 mb-4">
+              <Zap className="w-4 h-4 text-yellow-500" />
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Quick Dev Login
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => handleDevLogin('admin')}
+                disabled={loading}
+                className="px-4 py-2.5 bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white text-sm font-medium rounded-lg transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Admin
+              </button>
+              <button
+                onClick={() => handleDevLogin('manager')}
+                disabled={loading}
+                className="px-4 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-medium rounded-lg transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Manager
+              </button>
+              <button
+                onClick={() => handleDevLogin('franchisee')}
+                disabled={loading}
+                className="px-4 py-2.5 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-sm font-medium rounded-lg transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Franchisee
+              </button>
+              <button
+                onClick={() => handleDevLogin('employee')}
+                disabled={loading}
+                className="px-4 py-2.5 bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm font-medium rounded-lg transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Employee
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
+              Demo accounts with pre-configured roles
+            </p>
+          </div>
+
+          <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
+            Demo credentials: admin@demo.com / demo123
+          </p>
         </div>
       </div>
     </div>

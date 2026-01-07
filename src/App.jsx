@@ -12,7 +12,7 @@ import Chat from './pages/Chat';
 import Profile from './pages/Profile';
 import Analytics from './pages/Analytics';
 import Branding from './pages/Branding';
-import CustomForms from './pages/CustomForms';
+import Customize from './pages/Customize';
 import Users from './pages/Users';
 
 const ProtectedRoute = ({ children }) => {
@@ -45,7 +45,7 @@ const AppRoutes = () => {
         <Route path="profile" element={<Profile />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="branding" element={<Branding />} />
-        <Route path="custom-forms" element={<CustomForms />} />
+        <Route path="customize" element={<Customize />} />
         <Route path="users" element={<Users />} />
       </Route>
     </Routes>

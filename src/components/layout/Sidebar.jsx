@@ -43,9 +43,9 @@ const Sidebar = ({ mobile = false, onItemClick = () => {} }) => {
       show: hasPermission('branding') || hasPermission('all'),
     },
     {
-      path: '/custom-forms',
+      path: '/customize',
       icon: FileEdit,
-      label: t('nav.customForms'),
+      label: t('nav.customize'),
       show: hasPermission('custom_forms') || hasPermission('all'),
     },
     {

@@ -26,21 +26,88 @@ import {
   Layers,
   Split,
   ListPlus,
+  Info,
 } from 'lucide-react';
 
-// Field type definitions
+// Field type definitions with descriptions
 const FIELD_TYPES = [
-  { type: 'text', icon: Type, label: 'Text Input', group: 'Basic' },
-  { type: 'textarea', icon: FileText, label: 'Text Area', group: 'Basic' },
-  { type: 'number', icon: Hash, label: 'Number', group: 'Basic' },
-  { type: 'select', icon: List, label: 'Dropdown', group: 'Basic' },
-  { type: 'multiselect', icon: CheckSquare, label: 'Multi-Select', group: 'Basic' },
-  { type: 'date', icon: Calendar, label: 'Date', group: 'Basic' },
-  { type: 'file', icon: Upload, label: 'File Upload', group: 'Basic' },
-  { type: 'smartselect', icon: Sparkles, label: 'Smart Dropdown', group: 'Smart' },
-  { type: 'smartmultiselect', icon: Layers, label: 'Smart Multi-Select', group: 'Smart' },
-  { type: 'dualfield', icon: Split, label: 'Custom Dual Field', group: 'Advanced' },
-  { type: 'multidualfield', icon: ListPlus, label: 'Multi Custom Dual Field', group: 'Advanced' },
+  {
+    type: 'text',
+    icon: Type,
+    label: 'Text Input',
+    group: 'Basic',
+    description: 'Single-line text input for short responses like names, models, or IDs. Supports placeholder text and can be marked as required.',
+  },
+  {
+    type: 'textarea',
+    icon: FileText,
+    label: 'Text Area',
+    group: 'Basic',
+    description: 'Multi-line text input for longer descriptions or detailed notes. You can set a minimum character length requirement.',
+  },
+  {
+    type: 'number',
+    icon: Hash,
+    label: 'Number',
+    group: 'Basic',
+    description: 'Numeric input field for quantities, measurements, or counts. Supports decimal values and min/max validation.',
+  },
+  {
+    type: 'select',
+    icon: List,
+    label: 'Dropdown',
+    group: 'Basic',
+    description: 'Standard dropdown menu with fixed options defined by admin. Users select one option from the list you provide.',
+  },
+  {
+    type: 'multiselect',
+    icon: CheckSquare,
+    label: 'Multi-Select',
+    group: 'Basic',
+    description: 'Dropdown that allows selecting multiple options. Useful for selecting multiple tools, materials, or categories from a fixed list.',
+  },
+  {
+    type: 'date',
+    icon: Calendar,
+    label: 'Date',
+    group: 'Basic',
+    description: 'Date picker for selecting dates. You can set minimum and maximum date constraints to restrict the date range.',
+  },
+  {
+    type: 'file',
+    icon: Upload,
+    label: 'File Upload',
+    group: 'Basic',
+    description: 'File upload field with drag-and-drop support. Configure to accept specific file types (images, PDFs, etc.) and allow single or multiple files.',
+  },
+  {
+    type: 'smartselect',
+    icon: Sparkles,
+    label: 'Smart Dropdown',
+    group: 'Smart',
+    description: 'Searchable dropdown that learns from submissions. Users can search existing options OR create new ones on the fly. The options list grows automatically as users submit AARs.',
+  },
+  {
+    type: 'smartmultiselect',
+    icon: Layers,
+    label: 'Smart Multi-Select',
+    group: 'Smart',
+    description: 'Multi-select version of Smart Dropdown. Users can search and select multiple existing options, or create new ones. Perfect for dynamic lists that expand over time.',
+  },
+  {
+    type: 'dualfield',
+    icon: Split,
+    label: 'Custom Dual Field',
+    group: 'Advanced',
+    description: 'Combines a searchable/creatable dropdown with a fixed unit selector. Example: "Red" + "mL" for tracking colors with volumes. Perfect for materials, paints, or chemicals with measurements.',
+  },
+  {
+    type: 'multidualfield',
+    icon: ListPlus,
+    label: 'Multi Custom Dual Field',
+    group: 'Advanced',
+    description: 'Multiple rows of dual fields with + button to add more. Each row has a searchable value and fixed unit. Example: Track multiple colors used, each with different volumes.',
+  },
 ];
 
 // Section definitions for organizing fields
@@ -163,6 +230,7 @@ const Customize = () => {
   const [editingSection, setEditingSection] = useState(null);
   const [sectionForm, setSectionForm] = useState({ id: '', name: '' });
   const [loading, setLoading] = useState(false);
+  const [hoveredFieldType, setHoveredFieldType] = useState(null);
 
   // Load schema from API (with localStorage fallback)
   useEffect(() => {
@@ -538,18 +606,45 @@ const Customize = () => {
               </h3>
               <div className="space-y-2">
                 {FIELD_TYPES.map((fieldType) => (
-                  <button
-                    key={fieldType.type}
-                    onClick={() => addField(fieldType)}
-                    className="w-full flex items-center space-x-3 p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-primary-500 dark:hover:border-primary-500 transition-colors text-left"
-                  >
-                    <fieldType.icon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {fieldType.label}
-                      </p>
-                    </div>
-                  </button>
+                  <div key={fieldType.type} className="relative group">
+                    <button
+                      onClick={() => addField(fieldType)}
+                      className="w-full flex items-center space-x-3 p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-primary-500 dark:hover:border-primary-500 transition-colors text-left"
+                    >
+                      <fieldType.icon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                          {fieldType.label}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHoveredFieldType(hoveredFieldType === fieldType.type ? null : fieldType.type);
+                        }}
+                        onMouseEnter={() => setHoveredFieldType(fieldType.type)}
+                        onMouseLeave={() => setHoveredFieldType(null)}
+                        className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <Info className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                      </button>
+                    </button>
+
+                    {/* Tooltip */}
+                    {hoveredFieldType === fieldType.type && (
+                      <div className="absolute left-full ml-2 top-0 z-50 w-80 p-4 bg-gray-900 dark:bg-gray-800 text-white rounded-lg shadow-xl border border-gray-700 dark:border-gray-600">
+                        <div className="flex items-start space-x-2 mb-2">
+                          <fieldType.icon className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
+                          <h4 className="text-sm font-bold text-white">{fieldType.label}</h4>
+                        </div>
+                        <p className="text-xs text-gray-300 leading-relaxed">
+                          {fieldType.description}
+                        </p>
+                        <div className="absolute left-0 top-4 -ml-2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-gray-900 dark:border-r-gray-800"></div>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>

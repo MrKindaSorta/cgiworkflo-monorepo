@@ -766,9 +766,19 @@ const Customize = () => {
                             options: e.target.value.split('\n').filter((o) => o.trim()),
                           })
                         }
+                        onKeyDown={(e) => {
+                          // Prevent form submission on Enter, allow newlines
+                          if (e.key === 'Enter') {
+                            e.stopPropagation();
+                          }
+                        }}
                         rows={5}
+                        placeholder="Option 1&#10;Option 2&#10;Option 3"
                         className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
                       />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Press Enter to add each new option on a new line
+                      </p>
                     </div>
                   )}
 
@@ -785,11 +795,18 @@ const Customize = () => {
                             options: e.target.value.split('\n').filter((o) => o.trim()),
                           })
                         }
+                        onKeyDown={(e) => {
+                          // Prevent form submission on Enter, allow newlines
+                          if (e.key === 'Enter') {
+                            e.stopPropagation();
+                          }
+                        }}
                         rows={5}
+                        placeholder="Option 1&#10;Option 2&#10;Option 3"
                         className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
                       />
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Users can search and create new options when submitting AARs
+                        Press Enter for new lines. Users can search and create options when submitting.
                       </p>
                     </div>
                   )}

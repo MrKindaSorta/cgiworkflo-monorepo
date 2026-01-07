@@ -2,6 +2,7 @@ import { Upload, X } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import SmartSelect from './SmartSelect';
 import DualField from './DualField';
+import TripleField from './TripleField';
 
 const DynamicField = ({ field, register, errors, watch, setValue, photos, setPhotos }) => {
   const fieldValue = watch(field.id);
@@ -184,6 +185,17 @@ const DynamicField = ({ field, register, errors, watch, setValue, photos, setPho
     case 'multidualfield':
       return (
         <DualField
+          field={field}
+          value={fieldValue}
+          onChange={(newValue) => setValue(field.id, newValue)}
+          error={errors[field.id]?.message}
+        />
+      );
+
+    case 'triplefield':
+    case 'multitriplefield':
+      return (
+        <TripleField
           field={field}
           value={fieldValue}
           onChange={(newValue) => setValue(field.id, newValue)}

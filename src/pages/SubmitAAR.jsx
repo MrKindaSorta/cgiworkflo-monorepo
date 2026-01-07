@@ -162,6 +162,32 @@ const SubmitAAR = () => {
           }
           break;
 
+        case 'triplefield':
+          fieldSchema = z.object({
+            value: z.string(),
+            unit: z.string(),
+            amount: z.union([z.string(), z.number()]),
+          });
+          if (!field.required) {
+            fieldSchema = fieldSchema.optional();
+          }
+          break;
+
+        case 'multitriplefield':
+          fieldSchema = z.array(
+            z.object({
+              value: z.string(),
+              unit: z.string(),
+              amount: z.union([z.string(), z.number()]),
+            })
+          );
+          if (field.required) {
+            fieldSchema = fieldSchema.min(1, `At least one ${field.label} is required`);
+          } else {
+            fieldSchema = fieldSchema.optional();
+          }
+          break;
+
         case 'file':
           // File fields are handled separately (not in Zod schema)
           if (field.required) {
@@ -297,7 +323,9 @@ const SubmitAAR = () => {
                       field.type === 'textarea' ||
                       field.type === 'file' ||
                       field.type === 'dualfield' ||
-                      field.type === 'multidualfield'
+                      field.type === 'multidualfield' ||
+                      field.type === 'triplefield' ||
+                      field.type === 'multitriplefield'
                         ? 'md:col-span-2'
                         : ''
                     }

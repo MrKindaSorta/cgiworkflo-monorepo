@@ -25,6 +25,8 @@ const fieldValidator = z.object({
     'file',
     'dualfield',
     'multidualfield',
+    'triplefield',
+    'multitriplefield',
   ]),
   label: z.string(),
   placeholder: z.string().optional(),
@@ -46,6 +48,7 @@ const fieldValidator = z.object({
   allowCreate: z.boolean().optional(),
   unitOptions: z.array(z.string()).optional(),
   unitLabel: z.string().optional(),
+  amountLabel: z.string().optional(),
 });
 
 // Section validation schema

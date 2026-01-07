@@ -1,6 +1,42 @@
-Create a complete mobile-first React frontend for CGIWorkFlo.com using Tailwind CSS. Extremely responsive, 50%+ mobile usage — perfect touch targets, fast load, smooth desktop/mobile experience. Support light/dark modes globally.
-Focus: pure frontend only (no backend, use mock data/localStorage for persistence). Deployable to Cloudflare Pages.
-User roles (mocked via simple login form with role selection):
+## UPDATED: Production Full-Stack Application (January 2026)
+
+CGIWorkFlo.com is now a **production-ready full-stack application** deployed on Cloudflare infrastructure with real backend API, database, and authentication.
+
+**Live URLs:**
+- Frontend: https://cgiworkflo-monorepo.pages.dev
+- Backend API: https://cgiworkflo-api.joshua-r-klimek.workers.dev
+- Repository: https://github.com/MrKindaSorta/cgiworkflo-monorepo
+
+**Architecture:**
+- **Frontend:** React 19 + Vite (Cloudflare Pages)
+- **Backend:** Cloudflare Workers + Hono framework
+- **Database:** Cloudflare D1 (SQLite with 20 tables, FTS5 search)
+- **Storage:** Cloudflare R2 (photos/attachments)
+- **Auth:** JWT tokens with bcrypt password hashing
+
+**What's Implemented:**
+✅ Complete frontend UI (mobile-first, dark mode, 5 languages)
+✅ JWT authentication system
+✅ Login with email/password OR quick dev login buttons
+✅ Database schema with users, aars, photos, comments, votes, messaging
+✅ 4 demo accounts (admin@demo.com, manager@demo.com, franchisee@demo.com, employee@demo.com - password: demo123)
+✅ API endpoints: /auth/register, /auth/login, /auth/me, /auth/logout, /auth/dev-login
+✅ Auto-deployment via GitHub → Cloudflare
+
+**What's Next:**
+- AAR CRUD API endpoints
+- Photo upload to R2
+- Search/filtering with FTS5
+- Chat API with polling or WebSockets
+- Analytics endpoints
+
+---
+
+## Original Specification (Reference)
+
+Mobile-first React frontend for CGIWorkFlo.com using Tailwind CSS. Extremely responsive, 50%+ mobile usage — perfect touch targets, fast load, smooth desktop/mobile experience. Support light/dark modes globally.
+
+User roles (now with real JWT authentication):
 
 Admin: full access (edit/delete AARs, customize forms, analytics, user creation)
 Manager: similar to Admin but no user creation

@@ -18,6 +18,9 @@ import {
   ChevronUp,
   Save,
   RotateCcw,
+  FolderPlus,
+  Edit2,
+  X,
 } from 'lucide-react';
 
 // Field type definitions
@@ -147,6 +150,9 @@ const Customize = () => {
   const [expandedSections, setExpandedSections] = useState(
     SECTIONS.reduce((acc, s) => ({ ...acc, [s.id]: true }), {})
   );
+  const [showSectionModal, setShowSectionModal] = useState(false);
+  const [editingSection, setEditingSection] = useState(null);
+  const [sectionForm, setSectionForm] = useState({ id: '', name: '' });
 
   // Load schema from localStorage on mount
   useEffect(() => {
@@ -258,6 +264,133 @@ const Customize = () => {
       .sort((a, b) => a.order - b.order);
   };
 
+  // Section management functions
+  const openSectionModal = (section = null) => {
+    if (section) {
+      setEditingSection(section);
+      setSectionForm({ id: section.id, name: section.name });
+    } else {
+      setEditingSection(null);
+      setSectionForm({ id: '', name: '' });
+    }
+    setShowSectionModal(true);
+  };
+
+  const closeSectionModal = () => {
+    setShowSectionModal(false);
+    setEditingSection(null);
+    setSectionForm({ id: '', name: '' });
+  };
+
+  const saveSection = () => {
+    if (!sectionForm.name.trim()) {
+      alert('Section name is required');
+      return;
+    }
+
+    if (editingSection) {
+      // Update existing section
+      setSchema({
+        ...schema,
+        sections: schema.sections.map((s) =>
+          s.id === editingSection.id ? { ...s, name: sectionForm.name } : s
+        ),
+      });
+    } else {
+      // Create new section
+      const newId = sectionForm.id || `section_${Date.now()}`;
+
+      // Check if ID already exists
+      if (schema.sections.find((s) => s.id === newId)) {
+        alert('Section ID already exists. Please use a unique ID.');
+        return;
+      }
+
+      const newSection = {
+        id: newId,
+        name: sectionForm.name,
+        order: schema.sections.length,
+      };
+
+      setSchema({
+        ...schema,
+        sections: [...schema.sections, newSection],
+      });
+
+      // Auto-expand the new section
+      setExpandedSections((prev) => ({ ...prev, [newId]: true }));
+    }
+
+    closeSectionModal();
+  };
+
+  const deleteSection = (sectionId) => {
+    // Check if section has fields
+    const hasFields = schema.fields.some((f) => f.section === sectionId);
+
+    if (hasFields) {
+      if (!confirm('This section has fields. Deleting it will move all fields to the first section. Continue?')) {
+        return;
+      }
+
+      // Move fields to first section
+      const firstSectionId = schema.sections[0].id;
+      setSchema({
+        ...schema,
+        sections: schema.sections.filter((s) => s.id !== sectionId),
+        fields: schema.fields.map((f) =>
+          f.section === sectionId ? { ...f, section: firstSectionId } : f
+        ),
+      });
+    } else {
+      if (!confirm('Are you sure you want to delete this section?')) {
+        return;
+      }
+
+      setSchema({
+        ...schema,
+        sections: schema.sections.filter((s) => s.id !== sectionId),
+      });
+    }
+
+    // Remove from expanded sections
+    setExpandedSections((prev) => {
+      const newExpanded = { ...prev };
+      delete newExpanded[sectionId];
+      return newExpanded;
+    });
+  };
+
+  const moveSectionUp = (sectionId) => {
+    const index = schema.sections.findIndex((s) => s.id === sectionId);
+    if (index <= 0) return;
+
+    const newSections = [...schema.sections];
+    [newSections[index - 1], newSections[index]] = [newSections[index], newSections[index - 1]];
+
+    // Update order values
+    newSections.forEach((s, i) => {
+      s.order = i;
+    });
+
+    setSchema({ ...schema, sections: newSections });
+  };
+
+  const moveSectionDown = (sectionId) => {
+    const index = schema.sections.findIndex((s) => s.id === sectionId);
+    if (index === -1 || index >= schema.sections.length - 1) return;
+
+    const newSections = [...schema.sections];
+    [newSections[index], newSections[index + 1]] = [newSections[index + 1], newSections[index]];
+
+    // Update order values
+    newSections.forEach((s, i) => {
+      s.order = i;
+    });
+
+    setSchema({ ...schema, sections: newSections });
+  };
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
@@ -354,8 +487,17 @@ const Customize = () => {
 
             {/* Center Panel - Form Builder */}
             <div className="md:col-span-6 overflow-y-auto p-4 md:p-6">
+              {/* Add Section Button */}
+              <button
+                onClick={() => openSectionModal()}
+                className="w-full mb-4 flex items-center justify-center space-x-2 p-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+              >
+                <FolderPlus className="w-5 h-5" />
+                <span className="font-medium">Add New Section</span>
+              </button>
+
               <div className="space-y-4">
-                {SECTIONS.map((section) => {
+                {schema.sections.map((section) => {
                   const sectionFields = getFieldsForSection(section.id);
                   return (
                     <div
@@ -363,24 +505,75 @@ const Customize = () => {
                       className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
                     >
                       {/* Section Header */}
-                      <button
-                        onClick={() => toggleSection(section.id)}
-                        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
-                      >
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                          {section.name}
-                        </h3>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {sectionFields.length} fields
-                          </span>
-                          {expandedSections[section.id] ? (
-                            <ChevronUp className="w-5 h-5 text-gray-400" />
-                          ) : (
-                            <ChevronDown className="w-5 h-5 text-gray-400" />
-                          )}
+                      <div className="flex items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                        <button
+                          onClick={() => toggleSection(section.id)}
+                          className="flex-1 flex items-center justify-between"
+                        >
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            {section.name}
+                          </h3>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                              {sectionFields.length} fields
+                            </span>
+                            {expandedSections[section.id] ? (
+                              <ChevronUp className="w-5 h-5 text-gray-400" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5 text-gray-400" />
+                            )}
+                          </div>
+                        </button>
+
+                        {/* Section Actions */}
+                        <div className="flex items-center space-x-1 ml-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              moveSectionUp(section.id);
+                            }}
+                            disabled={schema.sections.findIndex((s) => s.id === section.id) === 0}
+                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Move up"
+                          >
+                            <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              moveSectionDown(section.id);
+                            }}
+                            disabled={
+                              schema.sections.findIndex((s) => s.id === section.id) ===
+                              schema.sections.length - 1
+                            }
+                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Move down"
+                          >
+                            <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openSectionModal(section);
+                            }}
+                            className="p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/20"
+                            title="Edit section"
+                          >
+                            <Edit2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteSection(section.id);
+                            }}
+                            className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/20"
+                            title="Delete section"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                          </button>
                         </div>
-                      </button>
+                      </div>
 
                       {/* Section Fields */}
                       {expandedSections[section.id] && (
@@ -684,7 +877,7 @@ const Customize = () => {
               </h2>
 
               <div className="space-y-6">
-                {SECTIONS.map((section) => {
+                {schema.sections.map((section) => {
                   const sectionFields = getFieldsForSection(section.id);
                   if (sectionFields.length === 0) return null;
 
@@ -792,6 +985,77 @@ const Customize = () => {
           </div>
         )}
       </div>
+
+      {/* Section Modal */}
+      {showSectionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {editingSection ? 'Edit Section' : 'Create New Section'}
+              </h3>
+              <button
+                onClick={closeSectionModal}
+                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Section Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={sectionForm.name}
+                  onChange={(e) => setSectionForm({ ...sectionForm, name: e.target.value })}
+                  placeholder="e.g., Basic Information"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  autoFocus
+                />
+              </div>
+
+              {!editingSection && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Section ID (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={sectionForm.id}
+                    onChange={(e) => setSectionForm({ ...sectionForm, id: e.target.value })}
+                    placeholder="Auto-generated if left empty"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Used internally to identify this section. Leave empty to auto-generate.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={closeSectionModal}
+                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveSection}
+                className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium transition-colors"
+              >
+                {editingSection ? 'Save Changes' : 'Create Section'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

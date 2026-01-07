@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,7 +8,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAAR } from '../contexts/AARContext';
 import DynamicField from '../components/form/DynamicField';
 import { Settings } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 // Default schema sections
 const DEFAULT_SECTIONS = [
@@ -21,10 +20,13 @@ const DEFAULT_SECTIONS = [
 const SubmitAAR = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
   const { createAAR } = useAAR();
   const [photos, setPhotos] = useState({});
   const [formSchema, setFormSchema] = useState(null);
+
+  // Check if user can customize forms (Admin/Manager only)
+  const canCustomize = hasPermission('custom_forms') || hasPermission('all');
 
   // Load form schema from localStorage
   useEffect(() => {
@@ -169,7 +171,7 @@ const SubmitAAR = () => {
   // Show loading state while schema loads
   if (formSchema === null) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto">
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading form...</p>
@@ -181,7 +183,7 @@ const SubmitAAR = () => {
   // Show message if no fields configured
   if (!formSchema.fields || formSchema.fields.length === 0) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto">
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-8 text-center">
           <Settings className="w-16 h-16 mx-auto text-yellow-600 dark:text-yellow-400 mb-4" />
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
@@ -190,21 +192,23 @@ const SubmitAAR = () => {
           <p className="text-gray-600 dark:text-gray-400 mb-6">
             The Submit AAR form has no fields yet. Please configure the form in the Customize page.
           </p>
-          <Link
-            to="/customize"
-            className="inline-flex items-center px-6 py-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium transition-colors"
-          >
-            <Settings className="w-5 h-5 mr-2" />
-            Go to Customize
-          </Link>
+          {canCustomize && (
+            <Link
+              to="/customize"
+              className="inline-flex items-center px-6 py-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium transition-colors"
+            >
+              <Settings className="w-5 h-5 mr-2" />
+              Go to Customize
+            </Link>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="max-w-4xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
             {t('aar.submit')}
@@ -213,13 +217,15 @@ const SubmitAAR = () => {
             Document your repair work
           </p>
         </div>
-        <Link
-          to="/customize"
-          className="flex items-center space-x-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-        >
-          <Settings className="w-4 h-4" />
-          <span className="hidden md:inline">Customize Form</span>
-        </Link>
+        {canCustomize && (
+          <Link
+            to="/customize"
+            className="flex items-center space-x-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+            <span className="hidden md:inline">Customize Form</span>
+          </Link>
+        )}
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

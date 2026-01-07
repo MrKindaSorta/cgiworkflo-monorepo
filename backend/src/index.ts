@@ -18,12 +18,9 @@ app.use('*', prettyJSON());
 
 // CORS - configure cross-origin requests
 app.use('*', cors({
-  origin: (origin) => {
-    const allowedOrigins = (origin) => {
-      const origins = ['http://localhost:3000', 'https://cgiworkflo.pages.dev', 'https://cgiworkflo.com', 'https://www.cgiworkflo.com'];
-      return origins.includes(origin) ? origin : origins[0];
-    };
-    return allowedOrigins(origin);
+  origin: (origin: string) => {
+    const origins = ['http://localhost:3000', 'https://cgiworkflo.pages.dev', 'https://cgiworkflo.com', 'https://www.cgiworkflo.com'];
+    return origins.includes(origin) ? origin : origins[0];
   },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
@@ -114,7 +111,7 @@ app.onError((err, c) => {
         error: err.message,
         details: 'cause' in err ? err.cause : undefined,
       },
-      err.status
+      err.status as any
     );
   }
 
@@ -124,7 +121,7 @@ app.onError((err, c) => {
       error: 'Internal Server Error',
       message: c.env.ENVIRONMENT === 'development' ? err.message : 'An unexpected error occurred',
     },
-    500
+    500 as any
   );
 });
 

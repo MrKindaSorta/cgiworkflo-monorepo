@@ -6,6 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 
 # Workers configuration
 workers_dev = true
+account_id = "ce115cacc8399727e03f87e6604f9d6c"
 
 # Environment variables (non-sensitive)
 [vars]
@@ -17,11 +18,10 @@ RATE_LIMIT_REQUESTS = "100"
 RATE_LIMIT_WINDOW_SECONDS = "60"
 
 # D1 Database binding
-# To create: wrangler d1 create cgiworkflo-db-production
 [[d1_databases]]
 binding = "DB"
 database_name = "cgiworkflo-db-production"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "034f013a-4a63-4e25-aa4b-67ff992d8881"
 
 # R2 Bucket binding for photos
 # To create: wrangler r2 bucket create cgiworkflo-photos-production
@@ -30,10 +30,10 @@ binding = "PHOTOS"
 bucket_name = "cgiworkflo-photos-production"
 
 # KV Namespace for caching and rate limiting
-# To create: wrangler kv:namespace create "CACHE"
 [[kv_namespaces]]
 binding = "CACHE"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+id = "f39f8dd9ff7b4290826ad1d02ad36432"
+preview_id = "3d9b48b2041648e39e40820e12eb6797"
 
 # Secrets (set via `wrangler secret put <KEY>`)
 # Required secrets:
@@ -48,7 +48,7 @@ vars = { ENVIRONMENT = "development", CORS_ORIGINS = "http://localhost:3000" }
 [[env.development.d1_databases]]
 binding = "DB"
 database_name = "cgiworkflo-db-development"
-database_id = "REPLACE_WITH_YOUR_DEV_D1_DATABASE_ID"
+database_id = "4ac2fe5e-4ed8-44cd-91c3-bc9e154a6585"
 
 [[env.development.r2_buckets]]
 binding = "PHOTOS"
@@ -56,7 +56,7 @@ bucket_name = "cgiworkflo-photos-development"
 
 [[env.development.kv_namespaces]]
 binding = "CACHE"
-id = "REPLACE_WITH_YOUR_DEV_KV_ID"
+id = "3d9b48b2041648e39e40820e12eb6797"
 
 # Staging environment
 [env.staging]

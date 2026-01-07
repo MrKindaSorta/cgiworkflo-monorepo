@@ -22,8 +22,18 @@ app.use('*', prettyJSON());
 // CORS - configure cross-origin requests
 app.use('*', cors({
   origin: (origin: string) => {
-    const origins = ['http://localhost:3000', 'https://cgiworkflo.pages.dev', 'https://cgiworkflo.com', 'https://www.cgiworkflo.com'];
-    return origins.includes(origin) ? origin : origins[0];
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'https://cgiworkflo-monorepo.pages.dev',
+      'https://cgiworkflo.pages.dev',
+      'https://cgiworkflo.com',
+      'https://www.cgiworkflo.com',
+    ];
+    // Allow origin if it's in the list or is a pages.dev subdomain
+    if (allowedOrigins.includes(origin) || origin.endsWith('.pages.dev')) {
+      return origin;
+    }
+    return allowedOrigins[0];
   },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],

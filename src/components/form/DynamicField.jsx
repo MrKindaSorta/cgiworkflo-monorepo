@@ -1,11 +1,14 @@
 import { Upload, X } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
+import { useTheme } from '../../contexts/ThemeContext';
+import Select from 'react-select';
 import SmartSelect from './SmartSelect';
 import DualField from './DualField';
 import TripleField from './TripleField';
 
 const DynamicField = ({ field, register, errors, watch, setValue, photos, setPhotos }) => {
   const fieldValue = watch(field.id);
+  const { theme } = useTheme();
 
   // File upload handler
   const onDrop = (acceptedFiles) => {
@@ -140,35 +143,100 @@ const DynamicField = ({ field, register, errors, watch, setValue, photos, setPho
         </div>
       );
 
-    case 'multiselect':
+    case 'multiselect': {
+      // Convert options to react-select format
+      const options = (field.options || []).map((opt) => ({ value: opt, label: opt }));
+      const selectValue = (fieldValue || []).map((v) => ({ value: v, label: v }));
+
+      // Custom styles for dark mode
+      const customStyles = {
+        control: (base, state) => ({
+          ...base,
+          backgroundColor: theme === 'dark' ? '#374151' : '#ffffff',
+          borderColor: state.isFocused
+            ? theme === 'dark' ? '#3b82f6' : '#3b82f6'
+            : theme === 'dark' ? '#4b5563' : '#d1d5db',
+          color: theme === 'dark' ? '#ffffff' : '#111827',
+          minHeight: '48px',
+          boxShadow: state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.5)' : 'none',
+          '&:hover': {
+            borderColor: theme === 'dark' ? '#6b7280' : '#9ca3af',
+          },
+        }),
+        menu: (base) => ({
+          ...base,
+          backgroundColor: theme === 'dark' ? '#374151' : '#ffffff',
+          border: theme === 'dark' ? '1px solid #4b5563' : '1px solid #d1d5db',
+          zIndex: 50,
+        }),
+        menuList: (base) => ({
+          ...base,
+          backgroundColor: theme === 'dark' ? '#374151' : '#ffffff',
+        }),
+        option: (base, state) => ({
+          ...base,
+          backgroundColor: state.isSelected
+            ? theme === 'dark' ? '#1f2937' : '#dbeafe'
+            : state.isFocused
+            ? theme === 'dark' ? '#4b5563' : '#f3f4f6'
+            : theme === 'dark' ? '#374151' : '#ffffff',
+          color: state.isSelected
+            ? theme === 'dark' ? '#ffffff' : '#1e40af'
+            : theme === 'dark' ? '#ffffff' : '#111827',
+          cursor: 'pointer',
+          padding: '12px',
+          '&:active': {
+            backgroundColor: theme === 'dark' ? '#1f2937' : '#bfdbfe',
+          },
+        }),
+        multiValue: (base) => ({
+          ...base,
+          backgroundColor: theme === 'dark' ? '#1f2937' : '#dbeafe',
+        }),
+        multiValueLabel: (base) => ({
+          ...base,
+          color: theme === 'dark' ? '#ffffff' : '#1e40af',
+        }),
+        multiValueRemove: (base) => ({
+          ...base,
+          color: theme === 'dark' ? '#9ca3af' : '#6b7280',
+          '&:hover': {
+            backgroundColor: theme === 'dark' ? '#ef4444' : '#fee2e2',
+            color: theme === 'dark' ? '#ffffff' : '#991b1b',
+          },
+        }),
+        input: (base) => ({
+          ...base,
+          color: theme === 'dark' ? '#ffffff' : '#111827',
+        }),
+        placeholder: (base) => ({
+          ...base,
+          color: theme === 'dark' ? '#9ca3af' : '#6b7280',
+        }),
+      };
+
       return (
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             {field.label}
             {field.required && <span className="text-red-500 ml-1">*</span>}
           </label>
-          <select
-            {...register(field.id, {
-              required: field.required ? `${field.label} is required` : false,
-            })}
-            multiple
-            size={Math.min(field.options?.length || 5, 5)}
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            {field.options?.map((option) => (
-              <option key={option} value={option} className="dark:bg-gray-700 dark:text-white">
-                {option}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Hold Ctrl/Cmd to select multiple options
-          </p>
+          <Select
+            isMulti
+            options={options}
+            value={selectValue}
+            onChange={(selected) => setValue(field.id, (selected || []).map((s) => s.value))}
+            placeholder={field.placeholder || `Select ${field.label}`}
+            styles={customStyles}
+            className="react-select-container"
+            classNamePrefix="react-select"
+          />
           {errors[field.id] && (
             <p className="text-red-500 text-sm mt-1">{errors[field.id].message}</p>
           )}
         </div>
       );
+    }
 
     case 'smartselect':
     case 'smartmultiselect':

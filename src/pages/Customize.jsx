@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { api } from '../lib/api-client';
 import {
   Plus,
   Trash2,
@@ -157,31 +158,83 @@ const Customize = () => {
   const [showSectionModal, setShowSectionModal] = useState(false);
   const [editingSection, setEditingSection] = useState(null);
   const [sectionForm, setSectionForm] = useState({ id: '', name: '' });
+  const [loading, setLoading] = useState(false);
 
-  // Load schema from localStorage on mount
+  // Load schema from API (with localStorage fallback)
   useEffect(() => {
-    const saved = localStorage.getItem('aar-form-schema');
-    if (saved) {
+    const loadFormSchema = async () => {
       try {
-        setSchema(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to load schema:', e);
+        const response = await api.customForms.getActive();
+
+        if (response.data.form) {
+          // Use database schema
+          setSchema(response.data.form.schema);
+        } else {
+          // No form in database yet - check localStorage for migration
+          const localSchema = localStorage.getItem('aar-form-schema');
+          if (localSchema) {
+            // Will be migrated on first save
+            setSchema(JSON.parse(localSchema));
+          } else {
+            // Use default schema
+            setSchema(DEFAULT_SCHEMA);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading form:', error);
+        // Fallback to localStorage
+        const localSchema = localStorage.getItem('aar-form-schema');
+        if (localSchema) {
+          setSchema(JSON.parse(localSchema));
+        } else {
+          setSchema(DEFAULT_SCHEMA);
+        }
       }
-    }
+    };
+
+    loadFormSchema();
   }, []);
 
-  // Save schema to localStorage
-  const saveSchema = () => {
-    localStorage.setItem('aar-form-schema', JSON.stringify(schema));
-    alert('Form schema saved successfully!');
+  // Save schema to database
+  const saveSchema = async () => {
+    try {
+      setLoading(true);
+      await api.customForms.updateActive(
+        schema,
+        'AAR Submission Form',
+        'Customized AAR submission form'
+      );
+
+      // Keep localStorage in sync as backup
+      localStorage.setItem('aar-form-schema', JSON.stringify(schema));
+
+      alert('Form schema saved successfully!');
+    } catch (error) {
+      console.error('Error saving form:', error);
+      alert('Failed to save form. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Reset to default schema
-  const resetSchema = () => {
-    if (confirm('Are you sure you want to reset to default schema? This cannot be undone.')) {
+  const resetSchema = async () => {
+    if (!confirm('Are you sure you want to reset to default schema? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await api.customForms.reset(DEFAULT_SCHEMA);
       setSchema(DEFAULT_SCHEMA);
       localStorage.removeItem('aar-form-schema');
       setSelectedField(null);
+      alert('Form reset to default successfully!');
+    } catch (error) {
+      console.error('Error resetting form:', error);
+      alert('Failed to reset form. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -448,18 +501,20 @@ const Customize = () => {
 
             <button
               onClick={resetSchema}
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center space-x-2"
+              disabled={loading}
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
             >
               <RotateCcw className="w-4 h-4" />
-              <span className="hidden md:inline">Reset</span>
+              <span className="hidden md:inline">{loading ? 'Resetting...' : 'Reset'}</span>
             </button>
 
             <button
               onClick={saveSchema}
-              className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium transition-colors flex items-center space-x-2"
+              disabled={loading}
+              className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium transition-colors flex items-center space-x-2"
             >
               <Save className="w-4 h-4" />
-              <span className="hidden md:inline">Save</span>
+              <span className="hidden md:inline">{loading ? 'Saving...' : 'Save'}</span>
             </button>
           </div>
         </div>

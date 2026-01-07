@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAAR } from '../contexts/AARContext';
 import DynamicField from '../components/form/DynamicField';
 import { Settings } from 'lucide-react';
+import { api } from '../lib/api-client';
 
 // Default schema sections
 const DEFAULT_SECTIONS = [
@@ -28,18 +29,38 @@ const SubmitAAR = () => {
   // Check if user can customize forms (Admin/Manager only)
   const canCustomize = hasPermission('custom_forms') || hasPermission('all');
 
-  // Load form schema from localStorage
+  // Load form schema from API (with localStorage fallback)
   useEffect(() => {
-    const saved = localStorage.getItem('aar-form-schema');
-    if (saved) {
+    const loadFormSchema = async () => {
       try {
-        setFormSchema(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to load form schema:', e);
-        // Use default schema if parsing fails
-        setFormSchema(null);
+        const response = await api.customForms.getActive();
+
+        if (response.data.form) {
+          // Use database schema
+          setFormSchema(response.data.form.schema);
+        } else {
+          // No form in database - check localStorage
+          const localSchema = localStorage.getItem('aar-form-schema');
+          if (localSchema) {
+            setFormSchema(JSON.parse(localSchema));
+          } else {
+            // No custom form - use empty schema (shows message)
+            setFormSchema({ sections: DEFAULT_SECTIONS, fields: [] });
+          }
+        }
+      } catch (error) {
+        console.error('Error loading form:', error);
+        // Fallback to localStorage
+        const localSchema = localStorage.getItem('aar-form-schema');
+        if (localSchema) {
+          setFormSchema(JSON.parse(localSchema));
+        } else {
+          setFormSchema({ sections: DEFAULT_SECTIONS, fields: [] });
+        }
       }
-    }
+    };
+
+    loadFormSchema();
   }, []);
 
   // Generate Zod schema dynamically based on form schema

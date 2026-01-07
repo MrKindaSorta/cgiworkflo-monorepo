@@ -89,6 +89,21 @@ export const api = {
     logout: () => apiClient.post('/auth/logout'),
   },
 
+  // Custom Forms
+  customForms: {
+    getActive: () => apiClient.get('/custom-forms/active'),
+
+    updateActive: (schema: any, name?: string, description?: string) =>
+      apiClient.put('/custom-forms/active', {
+        form_schema: schema,
+        name,
+        description,
+      }),
+
+    reset: (defaultSchema: any) =>
+      apiClient.post('/custom-forms/reset', { defaultSchema }),
+  },
+
   // AARs (To be implemented)
   aars: {
     list: (params?: any) => apiClient.get('/aars', { params }),

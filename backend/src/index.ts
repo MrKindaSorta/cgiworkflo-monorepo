@@ -11,6 +11,7 @@ import userRoutes from './routes/users';
 import conversationRoutes from './routes/conversations';
 import presenceRoutes from './routes/presence';
 import chatSyncRoutes from './routes/chat-sync';
+import uploadsRoutes from './routes/uploads';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -88,6 +89,9 @@ app.route('/api/presence', presenceRoutes);
 
 // Chat sync route for efficient polling (protected)
 app.route('/api/chat', chatSyncRoutes);
+
+// File upload routes (protected)
+app.route('/api/uploads', uploadsRoutes);
 
 // TODO: Register additional routes as they are implemented
 // import aarRoutes from './routes/aars';

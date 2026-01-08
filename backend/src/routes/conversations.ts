@@ -8,6 +8,7 @@ import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { authenticate } from '../middleware/auth';
+import { rateLimit } from '../middleware/rateLimit';
 import type { Env, Variables } from '../types/env';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -421,8 +422,12 @@ app.get('/:id/messages', async (c) => {
 /**
  * POST /api/conversations/:id/messages
  * Send a message
+ * Rate limited to 60 messages per minute
  */
-app.post('/:id/messages', async (c) => {
+app.post(
+  '/:id/messages',
+  rateLimit({ windowMs: 60000, maxRequests: 60 }),
+  async (c) => {
   try {
     const user = c.get('user');
     const conversationId = c.req.param('id');

@@ -645,7 +645,7 @@ const Chat = () => {
   );
 
   return (
-    <div className="fixed inset-0 top-16 bottom-16 md:static md:h-full flex flex-col md:flex-row bg-white dark:bg-gray-800 overflow-hidden">
+    <div className="fixed inset-0 top-14 bottom-16 md:static md:h-full flex flex-col md:flex-row bg-white dark:bg-gray-800 overflow-hidden">
       {/* Conversation List */}
       <div
         className={`${
@@ -751,7 +751,9 @@ const Chat = () => {
       </div>
 
       {/* Conversation View */}
-      {conversationViewContent}
+      <div className={`${selectedConversation ? 'flex' : 'hidden md:flex'} flex-1 flex-col`}>
+        {conversationViewContent}
+      </div>
 
       {/* Modals */}
       <NewChatModal />

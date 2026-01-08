@@ -49,15 +49,17 @@ users.get('/', authenticate, requireRole('admin', 'manager'), async (c) => {
   try {
     const db = c.env.DB;
 
-    // Get all non-deleted users with last_login and preferences
+    // Get all non-deleted users with last_login and preferences (ISO 8601 format)
     const result = await db
       .prepare(
         `SELECT
           id, name, email, role, franchise_id as franchiseId,
-          address, phone, last_login as lastLogin,
+          address, phone,
+          strftime('%Y-%m-%dT%H:%M:%SZ', last_login) as lastLogin,
           preferences_language as language, preferences_theme as theme,
           preferences_unit_area as unitArea, preferences_unit_liquid as unitLiquid,
-          created_at as createdAt, updated_at as updatedAt
+          strftime('%Y-%m-%dT%H:%M:%SZ', created_at) as createdAt,
+          strftime('%Y-%m-%dT%H:%M:%SZ', updated_at) as updatedAt
         FROM users
         WHERE deleted_at IS NULL
         ORDER BY created_at DESC`
@@ -87,10 +89,12 @@ users.get('/:id', authenticate, requireRole('admin', 'manager'), async (c) => {
       .prepare(
         `SELECT
           id, name, email, role, franchise_id as franchiseId,
-          address, phone, last_login as lastLogin,
+          address, phone,
+          strftime('%Y-%m-%dT%H:%M:%SZ', last_login) as lastLogin,
           preferences_language as language, preferences_theme as theme,
           preferences_unit_area as unitArea, preferences_unit_liquid as unitLiquid,
-          created_at as createdAt, updated_at as updatedAt
+          strftime('%Y-%m-%dT%H:%M:%SZ', created_at) as createdAt,
+          strftime('%Y-%m-%dT%H:%M:%SZ', updated_at) as updatedAt
         FROM users
         WHERE id = ? AND deleted_at IS NULL`
       )
@@ -141,13 +145,13 @@ users.post('/', authenticate, requireRole('admin'), async (c) => {
     // Generate ID
     const userId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-    // Insert user
+    // Insert user (use ISO 8601 UTC timestamps)
     await db
       .prepare(
         `INSERT INTO users (
           id, name, email, password_hash, role, franchise_id, address, phone,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))`
       )
       .bind(
         userId,
@@ -166,7 +170,9 @@ users.post('/', authenticate, requireRole('admin'), async (c) => {
       .prepare(
         `SELECT
           id, name, email, role, franchise_id as franchiseId,
-          address, phone, created_at as createdAt, updated_at as updatedAt
+          address, phone,
+          strftime('%Y-%m-%dT%H:%M:%SZ', created_at) as createdAt,
+          strftime('%Y-%m-%dT%H:%M:%SZ', updated_at) as updatedAt
         FROM users
         WHERE id = ?`
       )
@@ -268,8 +274,8 @@ users.put('/:id', authenticate, requireRole('admin'), async (c) => {
       throw new HTTPException(400, { message: 'No fields to update' });
     }
 
-    // Always update updated_at
-    updates.push("updated_at = datetime('now')");
+    // Always update updated_at (ISO 8601 UTC)
+    updates.push("updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')");
     values.push(userId); // For WHERE clause
 
     await db
@@ -282,7 +288,10 @@ users.put('/:id', authenticate, requireRole('admin'), async (c) => {
       .prepare(
         `SELECT
           id, name, email, role, franchise_id as franchiseId,
-          address, phone, created_at as createdAt, updated_at as updatedAt
+          address, phone,
+          strftime('%Y-%m-%dT%H:%M:%SZ', last_login) as lastLogin,
+          strftime('%Y-%m-%dT%H:%M:%SZ', created_at) as createdAt,
+          strftime('%Y-%m-%dT%H:%M:%SZ', updated_at) as updatedAt
         FROM users
         WHERE id = ?`
       )
@@ -336,9 +345,9 @@ users.delete('/:id', authenticate, requireRole('admin'), async (c) => {
       throw new HTTPException(404, { message: 'User not found' });
     }
 
-    // Soft delete user
+    // Soft delete user (ISO 8601 UTC timestamp)
     await db
-      .prepare("UPDATE users SET deleted_at = datetime('now') WHERE id = ?")
+      .prepare("UPDATE users SET deleted_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?")
       .bind(userId)
       .run();
 
@@ -398,7 +407,7 @@ users.patch('/preferences', authenticate, async (c) => {
 
     await db
       .prepare(
-        `UPDATE users SET ${updates.join(', ')}, updated_at = datetime('now') WHERE id = ?`
+        `UPDATE users SET ${updates.join(', ')}, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`
       )
       .bind(...values)
       .run();

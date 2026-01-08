@@ -67,7 +67,7 @@ app.post('/register', async (c) => {
     const userId = nanoid();
     await c.env.DB.prepare(
       `INSERT INTO users (id, name, email, password_hash, role, address, phone, franchise_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))`
     )
       .bind(
         userId,
@@ -83,7 +83,7 @@ app.post('/register', async (c) => {
 
     // Fetch created user
     const user = await c.env.DB.prepare(
-      'SELECT id, name, email, role, franchise_id as franchiseId, created_at as createdAt FROM users WHERE id = ?'
+      "SELECT id, name, email, role, franchise_id as franchiseId, strftime('%Y-%m-%dT%H:%M:%SZ', created_at) as createdAt FROM users WHERE id = ?"
     )
       .bind(userId)
       .first();
@@ -146,7 +146,8 @@ app.post('/login', async (c) => {
     const user = await c.env.DB.prepare(
       `SELECT id, name, email, password_hash, role, franchise_id as franchiseId,
               preferences_unit_area as unitArea, preferences_unit_liquid as unitLiquid,
-              preferences_language as language, preferences_theme as theme
+              preferences_language as language, preferences_theme as theme,
+              strftime('%Y-%m-%dT%H:%M:%SZ', created_at) as createdAt
        FROM users WHERE email = ? AND deleted_at IS NULL`
     )
       .bind(validated.email)
@@ -166,9 +167,9 @@ app.post('/login', async (c) => {
       return c.json({ error: 'Invalid credentials' }, 401);
     }
 
-    // Update last_login timestamp
+    // Update last_login timestamp (ISO 8601 UTC format)
     await c.env.DB.prepare(
-      "UPDATE users SET last_login = datetime('now') WHERE id = ?"
+      "UPDATE users SET last_login = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?"
     )
       .bind(user.id)
       .run();
@@ -232,7 +233,8 @@ app.get('/me', authenticate, async (c) => {
     `SELECT id, name, email, role, franchise_id as franchiseId, address, phone,
             preferences_unit_area as unitArea, preferences_unit_liquid as unitLiquid,
             preferences_language as language, preferences_theme as theme,
-            created_at as createdAt
+            strftime('%Y-%m-%dT%H:%M:%SZ', created_at) as createdAt,
+            strftime('%Y-%m-%dT%H:%M:%SZ', last_login) as lastLogin
      FROM users WHERE id = ? AND deleted_at IS NULL`
   )
     .bind(currentUser.id)
@@ -258,6 +260,7 @@ app.get('/me', authenticate, async (c) => {
         theme: user.theme,
       },
       createdAt: user.createdAt,
+      lastLogin: user.lastLogin,
     },
   });
 });
@@ -307,7 +310,8 @@ app.post('/dev-login', async (c) => {
     const user = await c.env.DB.prepare(
       `SELECT id, name, email, role, franchise_id as franchiseId,
               preferences_unit_area as unitArea, preferences_unit_liquid as unitLiquid,
-              preferences_language as language, preferences_theme as theme
+              preferences_language as language, preferences_theme as theme,
+              strftime('%Y-%m-%dT%H:%M:%SZ', created_at) as createdAt
        FROM users WHERE email = ? AND deleted_at IS NULL`
     )
       .bind(email)
@@ -323,9 +327,9 @@ app.post('/dev-login', async (c) => {
       );
     }
 
-    // Update last_login timestamp
+    // Update last_login timestamp (ISO 8601 UTC format)
     await c.env.DB.prepare(
-      "UPDATE users SET last_login = datetime('now') WHERE id = ?"
+      "UPDATE users SET last_login = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?"
     )
       .bind(user.id)
       .run();

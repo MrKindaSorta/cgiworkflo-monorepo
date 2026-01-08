@@ -245,7 +245,7 @@ const Chat = () => {
         }}
         className={`w-full p-3 md:p-4 flex items-start gap-3 transition-all duration-200 border-b ${
           isActive
-            ? 'bg-primary-50 dark:bg-primary-900/50 border-primary-200 dark:border-primary-800 border-l-4 border-l-primary-500 dark:border-l-primary-400'
+            ? 'bg-primary-50/80 dark:bg-primary-900/15 border-primary-200 dark:border-primary-800/50 border-l-4 border-l-primary-500 dark:border-l-primary-500 shadow-sm dark:ring-1 dark:ring-primary-700/30'
             : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/70'
         }`}
       >
@@ -283,7 +283,7 @@ const Chat = () => {
             <h3
               className={`font-semibold truncate text-base ${
                 isActive
-                  ? 'text-primary-700 dark:text-primary-300'
+                  ? 'text-primary-700 dark:text-primary-400'
                   : hasUnread
                   ? 'text-gray-900 dark:text-white'
                   : 'text-gray-700 dark:text-gray-300'
@@ -294,7 +294,7 @@ const Chat = () => {
             <span
               className={`text-xs ml-2 flex-shrink-0 ${
                 isActive
-                  ? 'text-primary-600 dark:text-primary-400 font-semibold'
+                  ? 'text-primary-600 dark:text-primary-500 font-semibold'
                   : hasUnread
                   ? 'text-primary-600 dark:text-primary-400 font-semibold'
                   : 'text-gray-500 dark:text-gray-500'
@@ -307,7 +307,7 @@ const Chat = () => {
             <p
               className={`text-sm truncate ${
                 isActive
-                  ? 'text-primary-600 dark:text-primary-300 font-medium'
+                  ? 'text-primary-600 dark:text-gray-300 font-medium'
                   : hasUnread
                   ? 'text-gray-900 dark:text-gray-200 font-medium'
                   : 'text-gray-600 dark:text-gray-400'

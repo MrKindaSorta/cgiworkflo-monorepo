@@ -274,6 +274,8 @@ const Customize = () => {
   const [loading, setLoading] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const [activeType, setActiveType] = useState(null); // 'field' or 'section'
+  const [showAddFieldModal, setShowAddFieldModal] = useState(false);
+  const [pendingFieldType, setPendingFieldType] = useState(null);
 
   // Configure drag sensors (mouse, touch, keyboard)
   const sensors = useSensors(
@@ -388,31 +390,45 @@ const Customize = () => {
     }
   };
 
-  // Add new field
-  const addField = (fieldType) => {
+  // Open add field modal
+  const openAddFieldModal = (fieldType) => {
+    setPendingFieldType(fieldType);
+    setShowAddFieldModal(true);
+  };
+
+  // Close add field modal
+  const closeAddFieldModal = () => {
+    setPendingFieldType(null);
+    setShowAddFieldModal(false);
+  };
+
+  // Add new field to selected section
+  const addFieldToSection = (sectionId) => {
+    if (!pendingFieldType) return;
+
     const newField = {
       id: `field_${Date.now()}`,
-      type: fieldType.type,
-      label: `New ${fieldType.label}`,
-      placeholder: `Enter ${fieldType.label.toLowerCase()}`,
+      type: pendingFieldType.type,
+      label: `New ${pendingFieldType.label}`,
+      placeholder: `Enter ${pendingFieldType.label.toLowerCase()}`,
       required: false,
-      order: schema.fields.filter((f) => f.section === 'basic').length,
-      section: 'basic',
-      ...(fieldType.type === 'select' || fieldType.type === 'multiselect'
+      order: schema.fields.filter((f) => f.section === sectionId).length,
+      section: sectionId,
+      ...(pendingFieldType.type === 'select' || pendingFieldType.type === 'multiselect'
         ? { options: ['Option 1', 'Option 2', 'Option 3'] }
         : {}),
-      ...(fieldType.type === 'smartselect' || fieldType.type === 'smartmultiselect'
+      ...(pendingFieldType.type === 'smartselect' || pendingFieldType.type === 'smartmultiselect'
         ? { options: [], allowCreate: true }
         : {}),
-      ...(fieldType.type === 'dualfield' || fieldType.type === 'multidualfield'
+      ...(pendingFieldType.type === 'dualfield' || pendingFieldType.type === 'multidualfield'
         ? { options: [], unitOptions: ['Unit 1', 'Unit 2'], unitLabel: 'Unit', allowCreate: true }
         : {}),
-      ...(fieldType.type === 'triplefield' || fieldType.type === 'multitriplefield'
+      ...(pendingFieldType.type === 'triplefield' || pendingFieldType.type === 'multitriplefield'
         ? { options: [], unitOptions: ['Unit 1', 'Unit 2'], unitLabel: 'Unit', amountLabel: 'Amount', allowCreate: true }
         : {}),
-      ...(fieldType.type === 'file' ? { multiple: false, accept: 'image/*' } : {}),
-      ...(fieldType.type === 'number' ? { validation: { min: 0 } } : {}),
-      ...(fieldType.type === 'textarea' ? { validation: { minLength: 10 } } : {}),
+      ...(pendingFieldType.type === 'file' ? { multiple: false, accept: 'image/*' } : {}),
+      ...(pendingFieldType.type === 'number' ? { validation: { min: 0 } } : {}),
+      ...(pendingFieldType.type === 'textarea' ? { validation: { minLength: 10 } } : {}),
     };
 
     setSchema({
@@ -420,6 +436,7 @@ const Customize = () => {
       fields: [...schema.fields, newField],
     });
     setSelectedField(newField);
+    closeAddFieldModal();
   };
 
   // Delete field
@@ -996,7 +1013,7 @@ const Customize = () => {
                 {FIELD_TYPES.map((fieldType) => (
                   <div key={fieldType.type} className="relative">
                     <button
-                      onClick={() => addField(fieldType)}
+                      onClick={() => openAddFieldModal(fieldType)}
                       className="w-full flex items-center space-x-3 p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-primary-500 dark:hover:border-primary-500 transition-colors text-left group"
                     >
                       <fieldType.icon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -2224,6 +2241,65 @@ const Customize = () => {
           </div>
         )}
       </div>
+
+      {/* Add Field Modal - Section Selection */}
+      {showAddFieldModal && pendingFieldType && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center space-x-3">
+                <pendingFieldType.icon className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Add {pendingFieldType.label}
+                </h3>
+              </div>
+              <button
+                onClick={closeAddFieldModal}
+                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                Select which section to add this field to:
+              </label>
+              <div className="space-y-2">
+                {schema.sections.map((section) => (
+                  <button
+                    key={section.id}
+                    onClick={() => addFieldToSection(section.id)}
+                    className="w-full flex items-center justify-between p-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors text-left group"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white group-hover:text-primary-700 dark:group-hover:text-primary-300">
+                        {section.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {getFieldsForSection(section.id).length} existing fields
+                      </p>
+                    </div>
+                    <ChevronDown className="w-5 h-5 text-gray-400 group-hover:text-primary-500 transform -rotate-90" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end p-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={closeAddFieldModal}
+                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Section Modal */}
       {showSectionModal && (

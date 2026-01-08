@@ -89,9 +89,8 @@ app.post('/', rateLimit({ windowMs: 60000, maxRequests: 20 }), async (c) => {
         },
       });
 
-      // For production, you'd use your R2 custom domain or public bucket URL
-      // For now, construct URL (this will need to be updated with actual R2 public URL)
-      const url = `https://pub-cgiworkflo.r2.dev/${key}`; // Update with your actual R2 public domain
+      // Serve files through Worker proxy (avoids needing public bucket access)
+      const url = `https://cgiworkflo-api.joshua-r-klimek.workers.dev/files/${key}`;
 
       return c.json({
         success: true,

@@ -44,6 +44,7 @@ const Chat = () => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const attachmentMenuRef = useRef(null);
@@ -370,7 +371,7 @@ const Chat = () => {
     );
   };
 
-  const MessageBubble = ({ message, previousMessage, nextMessage }) => {
+  const MessageBubble = memo(({ message, previousMessage, nextMessage }) => {
     const isOwn = message.senderId === user.id;
     const sender = users.find((u) => u.id === message.senderId) || { name: message.senderName || 'Unknown' };
     const isGrouped = shouldGroupMessage(message, previousMessage);
@@ -446,8 +447,8 @@ const Chat = () => {
                   <img
                     src={attachment.url}
                     alt={attachment.filename}
-                    className="max-w-full max-h-96 rounded-xl object-cover cursor-pointer"
-                    onClick={() => window.open(attachment.url, '_blank')}
+                    className="max-w-full max-h-96 rounded-xl object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => setLightboxImage({ url: attachment.url, filename: attachment.filename })}
                   />
                   <p
                     className={`px-4 py-2 text-xs ${
@@ -490,7 +491,7 @@ const Chat = () => {
         </div>
       </>
     );
-  };
+  });
 
   // New Chat Modal Component
   const NewChatModal = () => {
@@ -611,6 +612,46 @@ const Chat = () => {
             Uploading...
           </div>
         )}
+      </div>
+    );
+  };
+
+  // Image Lightbox Component
+  const ImageLightbox = () => {
+    if (!lightboxImage) return null;
+
+    return (
+      <div
+        className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm"
+        onClick={() => setLightboxImage(null)}
+      >
+        {/* Close button */}
+        <button
+          onClick={() => setLightboxImage(null)}
+          className="absolute top-4 right-4 z-10 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors group"
+          aria-label="Close lightbox"
+        >
+          <X className="w-6 h-6 text-white group-hover:scale-110 transition-transform" />
+        </button>
+
+        {/* Image container */}
+        <div className="relative max-w-full max-h-full flex items-center justify-center">
+          <img
+            src={lightboxImage.url}
+            alt={lightboxImage.filename}
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+
+        {/* Filename display */}
+        <div className="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none">
+          <div className="bg-black/70 backdrop-blur-md px-6 py-3 rounded-full max-w-md mx-4">
+            <p className="text-white text-sm font-medium truncate text-center">
+              {lightboxImage.filename}
+            </p>
+          </div>
+        </div>
       </div>
     );
   };
@@ -910,6 +951,7 @@ const Chat = () => {
 
       {/* Modals */}
       <NewChatModal />
+      <ImageLightbox />
     </div>
   );
 };

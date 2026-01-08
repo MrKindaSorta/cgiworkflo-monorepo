@@ -12,6 +12,7 @@ import conversationRoutes from './routes/conversations';
 import presenceRoutes from './routes/presence';
 import chatSyncRoutes from './routes/chat-sync';
 import uploadsRoutes from './routes/uploads';
+import filesRoutes from './routes/files';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -92,6 +93,9 @@ app.route('/api/chat', chatSyncRoutes);
 
 // File upload routes (protected)
 app.route('/api/uploads', uploadsRoutes);
+
+// File serving routes (public - serves uploaded files from R2)
+app.route('/files', filesRoutes);
 
 // TODO: Register additional routes as they are implemented
 // import aarRoutes from './routes/aars';

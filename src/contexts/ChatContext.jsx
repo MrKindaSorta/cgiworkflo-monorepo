@@ -15,8 +15,8 @@ const ChatContext = createContext(null);
 // ============================================================================
 
 const PollingState = {
-  ACTIVE_CONVERSATION: 2500, // 2.5s - Real-time feel when actively chatting
-  BACKGROUND_MONITORING: 5000, // 5s - Check for new messages/conversations
+  ACTIVE_CONVERSATION: 5000, // 5s - Balanced real-time feel without constant flickering
+  BACKGROUND_MONITORING: 10000, // 10s - Check for new messages/conversations
   IDLE: 15000, // 15s - Reduced load when chat page open but inactive
   HIDDEN: 30000, // 30s - Battery-efficient when tab hidden
   OFFLINE: 60000, // 60s - Slowest when network issues detected
@@ -244,7 +244,11 @@ export const ChatProvider = ({ children }) => {
               // Merge new messages, avoid duplicates
               const existingIds = new Set(updated[convId].map((m) => m.id));
               const toAdd = newMessages.filter((m) => !existingIds.has(m.id));
-              updated[convId] = [...updated[convId], ...toAdd].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+              // Only update array if there are new messages to add
+              if (toAdd.length > 0) {
+                updated[convId] = [...updated[convId], ...toAdd].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+              }
             }
 
             // Update conversation timestamp for differential queries

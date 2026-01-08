@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api-client';
 import { detectCircularDependencies } from '../utils/conditionalFields';
+import { normalizeConditionValue } from '../utils/ConditionValueHelpers';
 import HelpTooltip from '../components/ui/HelpTooltip';
+import SmartConditionValueInput from '../components/form/SmartConditionValueInput';
 import {
   Plus,
   Trash2,
@@ -32,6 +34,8 @@ import {
   Columns3,
   Grid3x3,
   Zap,
+  ArrowRight,
+  AlertTriangle,
 } from 'lucide-react';
 
 // Field type definitions with descriptions
@@ -609,10 +613,24 @@ const Customize = () => {
     if (!field) return;
 
     const newConditions = [...(field.conditional?.conditions || [])];
-    newConditions[conditionIndex] = {
+    const updatedCondition = {
       ...newConditions[conditionIndex],
       ...updates,
     };
+
+    // Normalize value based on operator and referenced field type
+    if (updates.value !== undefined) {
+      const referencedField = schema.fields.find((f) => f.id === updatedCondition.fieldId);
+      if (referencedField) {
+        updatedCondition.value = normalizeConditionValue(
+          updatedCondition.operator,
+          updates.value,
+          referencedField.type
+        );
+      }
+    }
+
+    newConditions[conditionIndex] = updatedCondition;
 
     updateField(fieldId, {
       conditional: {
@@ -637,6 +655,68 @@ const Customize = () => {
         enabled: newConditions.length > 0,
       },
     });
+  };
+
+  // Dependency visualization helpers
+  const getFieldDependents = (fieldId) => {
+    return schema.fields.filter(
+      (f) =>
+        f.conditional?.enabled &&
+        f.conditional.conditions.some((c) => c.fieldId === fieldId)
+    );
+  };
+
+  const isFieldCircular = (fieldId) => {
+    const circularFields = detectCircularDependencies(schema.fields);
+    return circularFields.includes(fieldId);
+  };
+
+  const getCircularPath = (fieldId) => {
+    // Build dependency graph
+    const dependencies = new Map();
+    schema.fields.forEach((field) => {
+      if (field.conditional?.enabled) {
+        const deps = field.conditional.conditions
+          .filter((c) => c.fieldId)
+          .map((c) => c.fieldId);
+        dependencies.set(field.id, deps);
+      }
+    });
+
+    // Find the cycle using DFS
+    const visited = new Set();
+    const stack = new Set();
+    const path = [];
+
+    function findCycle(currentId) {
+      if (stack.has(currentId)) {
+        // Found cycle - build path string
+        const cycleStart = path.indexOf(currentId);
+        const cyclePath = path.slice(cycleStart);
+        cyclePath.push(currentId); // Complete the cycle
+        return cyclePath
+          .map((id) => schema.fields.find((f) => f.id === id)?.label || id)
+          .join(' → ');
+      }
+
+      if (visited.has(currentId)) return null;
+
+      visited.add(currentId);
+      stack.add(currentId);
+      path.push(currentId);
+
+      const deps = dependencies.get(currentId) || [];
+      for (const depId of deps) {
+        const result = findCycle(depId);
+        if (result) return result;
+      }
+
+      stack.delete(currentId);
+      path.pop();
+      return null;
+    }
+
+    return findCycle(fieldId) || 'Circular dependency detected';
   };
 
   return (
@@ -905,7 +985,7 @@ const Customize = () => {
                                         <span className="text-red-500 ml-1">*</span>
                                       )}
                                     </p>
-                                    <div className="flex items-center space-x-2 mt-0.5">
+                                    <div className="flex items-center flex-wrap gap-1.5 mt-0.5">
                                       <p className={`text-xs truncate ${
                                         selectedField?.id === field.id
                                           ? 'text-primary-700 dark:text-primary-300'
@@ -916,6 +996,32 @@ const Customize = () => {
                                       {field.conditional?.enabled && (
                                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
                                           <Zap className="w-3 h-3" />
+                                        </span>
+                                      )}
+                                      {(() => {
+                                        const dependents = getFieldDependents(field.id);
+                                        if (dependents.length > 0) {
+                                          const dependentNames = dependents.slice(0, 2).map((f) => f.label).join(', ');
+                                          const moreCount = dependents.length > 2 ? ` +${dependents.length - 2}` : '';
+                                          return (
+                                            <span
+                                              className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                              title={`Depended on by: ${dependents.map((f) => f.label).join(', ')}`}
+                                            >
+                                              <ArrowRight className="w-3 h-3 mr-0.5" />
+                                              {dependents.length}{moreCount}
+                                            </span>
+                                          );
+                                        }
+                                        return null;
+                                      })()}
+                                      {isFieldCircular(field.id) && (
+                                        <span
+                                          className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                                          title={getCircularPath(field.id)}
+                                        >
+                                          <AlertTriangle className="w-3 h-3 mr-0.5" />
+                                          Circular
                                         </span>
                                       )}
                                     </div>
@@ -1770,63 +1876,73 @@ const Customize = () => {
                                     }
                                     className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-900 dark:text-white"
                                   >
-                                    <option value="equals" className="dark:bg-gray-700 dark:text-white">
-                                      Equals
-                                    </option>
-                                    <option
-                                      value="notEquals"
-                                      className="dark:bg-gray-700 dark:text-white"
-                                    >
-                                      Not Equals
-                                    </option>
-                                    <option
-                                      value="contains"
-                                      className="dark:bg-gray-700 dark:text-white"
-                                    >
-                                      Contains
-                                    </option>
-                                    <option
-                                      value="greaterThan"
-                                      className="dark:bg-gray-700 dark:text-white"
-                                    >
-                                      Greater Than
-                                    </option>
-                                    <option
-                                      value="lessThan"
-                                      className="dark:bg-gray-700 dark:text-white"
-                                    >
-                                      Less Than
-                                    </option>
-                                    <option
-                                      value="isEmpty"
-                                      className="dark:bg-gray-700 dark:text-white"
-                                    >
-                                      Is Empty
-                                    </option>
-                                    <option
-                                      value="isNotEmpty"
-                                      className="dark:bg-gray-700 dark:text-white"
-                                    >
-                                      Is Not Empty
-                                    </option>
-                                    <option value="oneOf" className="dark:bg-gray-700 dark:text-white">
-                                      One Of
-                                    </option>
+                                    <optgroup label="Equality" className="dark:bg-gray-700 dark:text-white">
+                                      <option value="equals" className="dark:bg-gray-700 dark:text-white">
+                                        Equals
+                                      </option>
+                                      <option value="notEquals" className="dark:bg-gray-700 dark:text-white">
+                                        Not Equals
+                                      </option>
+                                    </optgroup>
+
+                                    <optgroup label="Comparison" className="dark:bg-gray-700 dark:text-white">
+                                      <option value="greaterThan" className="dark:bg-gray-700 dark:text-white">
+                                        Greater Than
+                                      </option>
+                                      <option value="lessThan" className="dark:bg-gray-700 dark:text-white">
+                                        Less Than
+                                      </option>
+                                    </optgroup>
+
+                                    <optgroup label="Text" className="dark:bg-gray-700 dark:text-white">
+                                      <option value="contains" className="dark:bg-gray-700 dark:text-white">
+                                        Contains
+                                      </option>
+                                      <option value="startsWith" className="dark:bg-gray-700 dark:text-white">
+                                        Starts With
+                                      </option>
+                                      <option value="endsWith" className="dark:bg-gray-700 dark:text-white">
+                                        Ends With
+                                      </option>
+                                    </optgroup>
+
+                                    <optgroup label="Arrays" className="dark:bg-gray-700 dark:text-white">
+                                      <option value="oneOf" className="dark:bg-gray-700 dark:text-white">
+                                        One Of
+                                      </option>
+                                      <option value="includes" className="dark:bg-gray-700 dark:text-white">
+                                        Includes
+                                      </option>
+                                      <option value="includesAny" className="dark:bg-gray-700 dark:text-white">
+                                        Includes Any
+                                      </option>
+                                      <option value="includesAll" className="dark:bg-gray-700 dark:text-white">
+                                        Includes All
+                                      </option>
+                                    </optgroup>
+
+                                    <optgroup label="Existence" className="dark:bg-gray-700 dark:text-white">
+                                      <option value="isEmpty" className="dark:bg-gray-700 dark:text-white">
+                                        Is Empty
+                                      </option>
+                                      <option value="isNotEmpty" className="dark:bg-gray-700 dark:text-white">
+                                        Is Not Empty
+                                      </option>
+                                    </optgroup>
                                   </select>
 
-                                  {/* Value Input */}
+                                  {/* Value Input - Smart Adaptive */}
                                   {condition.operator !== 'isEmpty' &&
                                     condition.operator !== 'isNotEmpty' && (
-                                      <input
-                                        type="text"
-                                        value={condition.value || ''}
-                                        onChange={(e) =>
+                                      <SmartConditionValueInput
+                                        referencedField={schema.fields.find((f) => f.id === condition.fieldId)}
+                                        operator={condition.operator}
+                                        value={condition.value}
+                                        onChange={(newValue) =>
                                           updateCondition(selectedField.id, index, {
-                                            value: e.target.value,
+                                            value: newValue,
                                           })
                                         }
-                                        placeholder="Value"
-                                        className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-900 dark:text-white"
                                       />
                                     )}
                                 </div>
@@ -1842,6 +1958,24 @@ const Customize = () => {
                               </button>
                             </div>
                           ))}
+
+                          {/* Circular Dependency Warning */}
+                          {isFieldCircular(selectedField.id) && (
+                            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg flex items-start space-x-2">
+                              <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                              <div className="flex-1 text-xs">
+                                <p className="font-semibold text-amber-900 dark:text-amber-200 mb-1">
+                                  ⚠️ Circular Dependency Detected
+                                </p>
+                                <p className="text-amber-700 dark:text-amber-300 mb-2">
+                                  {getCircularPath(selectedField.id)}
+                                </p>
+                                <p className="text-amber-600 dark:text-amber-400">
+                                  Remove one of the conditions in this chain to fix.
+                                </p>
+                              </div>
+                            </div>
+                          )}
 
                           {/* Add Condition Button */}
                           <div>

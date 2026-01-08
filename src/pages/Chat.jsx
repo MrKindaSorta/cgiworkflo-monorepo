@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
@@ -25,6 +25,7 @@ const Chat = () => {
   const { currentUser: user, users } = useAuth();
   const {
     conversations,
+    messages,
     activeConversationId,
     setActiveConversationId,
     sendMessage,
@@ -37,7 +38,6 @@ const Chat = () => {
   } = useChat();
 
   const [activeTab, setActiveTab] = useState('direct');
-  const selectedConversation = conversations.find((c) => c.id === activeConversationId);
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewChatModal, setShowNewChatModal] = useState(false);
@@ -46,17 +46,54 @@ const Chat = () => {
   const inputRef = useRef(null);
   const attachmentMenuRef = useRef(null);
 
-  const conversationMessages = activeConversationId ? getMessages(activeConversationId) : [];
+  // Memoize to prevent re-renders when conversations array updates
+  const selectedConversation = useMemo(
+    () => conversations.find((c) => c.id === activeConversationId),
+    [conversations, activeConversationId]
+  );
+
+  const conversationMessages = useMemo(
+    () => (activeConversationId ? messages[activeConversationId] || [] : []),
+    [activeConversationId, messages]
+  );
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversationMessages, selectedConversation]);
 
+  // Keep input focused when conversation is active
   useEffect(() => {
-    if (selectedConversation && inputRef.current) {
-      inputRef.current.focus();
+    if (selectedConversation && inputRef.current && document.activeElement !== inputRef.current) {
+      // Only focus if something else has focus (not during typing)
+      const activeElement = document.activeElement;
+      if (!activeElement || activeElement.tagName !== 'INPUT' || activeElement.type !== 'text') {
+        inputRef.current.focus();
+      }
     }
   }, [selectedConversation]);
+
+  // Prevent focus loss by maintaining focus on the input
+  const lastFocusedRef = useRef(false);
+  useEffect(() => {
+    if (!inputRef.current) return;
+
+    const handleFocus = () => {
+      lastFocusedRef.current = true;
+    };
+
+    const handleBlur = () => {
+      lastFocusedRef.current = false;
+    };
+
+    const input = inputRef.current;
+    input.addEventListener('focus', handleFocus);
+    input.addEventListener('blur', handleBlur);
+
+    return () => {
+      input.removeEventListener('focus', handleFocus);
+      input.removeEventListener('blur', handleBlur);
+    };
+  }, []);
 
   // Close attachment menu when clicking outside
   useEffect(() => {

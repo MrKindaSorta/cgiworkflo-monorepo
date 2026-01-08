@@ -398,7 +398,7 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  const sendMessage = async (conversationId, content, messageType = 'text') => {
+  const sendMessage = async (conversationId, content, messageType = 'text', metadata = null) => {
     try {
       setSending(true);
 
@@ -409,6 +409,7 @@ export const ChatProvider = ({ children }) => {
         senderId: currentUser?.id,
         content,
         messageType,
+        metadata,
         timestamp: new Date().toISOString(),
         senderName: currentUser?.name,
         _isPending: true,
@@ -423,9 +424,15 @@ export const ChatProvider = ({ children }) => {
       const response = await api.conversations.sendMessage(conversationId, {
         content,
         messageType,
+        metadata,
       });
 
       const actualMessage = response.data.data;
+
+      // Ensure metadata is preserved (in case API doesn't return it)
+      if (!actualMessage.metadata && metadata) {
+        actualMessage.metadata = metadata;
+      }
 
       // Replace temp message with actual
       setMessages((prev) => ({

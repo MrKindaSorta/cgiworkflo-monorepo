@@ -11,14 +11,17 @@ import { formatLastLogin, getRelativeTime } from '../utils/timezone';
 // VALIDATION SCHEMA
 // ============================================================================
 
-const userSchema = z.object({
+const baseUserSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
   role: z.enum(['admin', 'manager', 'franchisee', 'employee']),
   franchiseId: z.string().optional(),
   address: z.string().optional(),
   phone: z.string().optional(),
+});
+
+const userSchema = baseUserSchema.extend({
+  password: z.string().min(8, 'Password must be at least 8 characters'),
 }).refine(
   (data) => {
     // Employees must have a franchiseId
@@ -33,9 +36,21 @@ const userSchema = z.object({
   }
 );
 
-const editUserSchema = userSchema.extend({
+const editUserSchema = baseUserSchema.extend({
   password: z.string().min(8).optional().or(z.literal('')),
-});
+}).refine(
+  (data) => {
+    // Employees must have a franchiseId
+    if (data.role === 'employee') {
+      return !!data.franchiseId && data.franchiseId !== '';
+    }
+    return true;
+  },
+  {
+    message: 'Employees must be assigned to a franchisee',
+    path: ['franchiseId'],
+  }
+);
 
 // ============================================================================
 // USERS PAGE

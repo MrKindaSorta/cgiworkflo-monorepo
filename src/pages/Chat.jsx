@@ -495,33 +495,15 @@ const Chat = () => {
     );
   };
 
-  const ConversationView = memo(() => {
-    if (!selectedConversation) {
-      return (
-        <div className="hidden md:flex flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900">
-          <div className="text-center">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-full flex items-center justify-center">
-              <MessageSquare className="w-12 h-12 text-primary-600 dark:text-primary-400" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              {t('chat.selectConversation')}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 max-w-sm">
-              Choose a conversation from the list to start chatting
-            </p>
-          </div>
-        </div>
-      );
-    }
+  // Render conversation view JSX directly (no wrapper function)
+  const displayName = selectedConversation ? getConversationName(selectedConversation) : '';
+  const otherUser =
+    selectedConversation?.type === 'direct'
+      ? getOtherParticipant(selectedConversation)
+      : null;
 
-    const displayName = getConversationName(selectedConversation);
-    const otherUser =
-      selectedConversation.type === 'direct'
-        ? getOtherParticipant(selectedConversation)
-        : null;
-
-    return (
-      <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+  const conversationViewContent = selectedConversation ? (
+    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
         {/* Header */}
         <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
           <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -645,9 +627,22 @@ const Chat = () => {
             </button>
           </div>
         </form>
+    </div>
+  ) : (
+    <div className="hidden md:flex flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="text-center">
+        <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-full flex items-center justify-center">
+          <MessageSquare className="w-12 h-12 text-primary-600 dark:text-primary-400" />
+        </div>
+        <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          {t('chat.selectConversation')}
+        </h3>
+        <p className="text-gray-600 dark:text-gray-400 max-w-sm">
+          Choose a conversation from the list to start chatting
+        </p>
       </div>
-    );
-  });
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 top-16 bottom-16 md:static md:h-full flex flex-col md:flex-row bg-white dark:bg-gray-800 overflow-hidden">
@@ -756,9 +751,7 @@ const Chat = () => {
       </div>
 
       {/* Conversation View */}
-      <div className={`${selectedConversation ? 'flex' : 'hidden md:flex'} flex-1 flex-col`}>
-        <ConversationView />
-      </div>
+      {conversationViewContent}
 
       {/* Modals */}
       <NewChatModal />

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import DOMPurify from 'dompurify';
 import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
@@ -189,7 +190,7 @@ const Chat = () => {
       setNewMessage('');
     } catch (error) {
       console.error('Failed to send message:', error);
-      alert('Failed to send message. Please try again.');
+      toast.error('Failed to send message. Please try again.');
     }
   }, [newMessage, activeConversationId, sending, sendMessage]);
 
@@ -200,6 +201,7 @@ const Chat = () => {
     setShowAttachmentMenu(false);
 
     try {
+      const fileCount = files.length;
       for (const file of files) {
         // Upload file to R2
         const uploadResponse = await api.uploads.uploadFile(file, type);
@@ -216,9 +218,16 @@ const Chat = () => {
         const content = type === 'image' ? `📷 ${filename}` : `📎 ${filename}`;
         await sendMessage(activeConversationId, content, type === 'image' ? 'image' : 'file', metadata);
       }
+
+      // Show success message
+      if (fileCount === 1) {
+        toast.success('File uploaded successfully!');
+      } else {
+        toast.success(`${fileCount} files uploaded successfully!`);
+      }
     } catch (error) {
       console.error('Failed to upload file:', error);
-      alert('Failed to upload file. Please try again.');
+      toast.error('Failed to upload file. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -519,7 +528,7 @@ const Chat = () => {
                       setShowNewChatModal(false);
                     } catch (error) {
                       console.error('Failed to create conversation:', error);
-                      alert('Failed to create conversation. Please try again.');
+                      toast.error('Failed to create conversation. Please try again.');
                     }
                   }}
                   className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"

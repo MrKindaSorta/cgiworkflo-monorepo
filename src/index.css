@@ -18,6 +18,15 @@
     --color-primary-700: #1d4ed8;
     --color-primary-800: #1e40af;
     --color-primary-900: #1e3a8a;
+
+    /* Toast notification colors */
+    --toast-bg: #ffffff;
+    --toast-text: #111827;
+  }
+
+  .dark {
+    --toast-bg: #1f2937;
+    --toast-text: #f9fafb;
   }
 
   * {

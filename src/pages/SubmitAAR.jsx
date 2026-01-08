@@ -9,6 +9,7 @@ import { useAAR } from '../contexts/AARContext';
 import DynamicField from '../components/form/DynamicField';
 import { Settings } from 'lucide-react';
 import { api } from '../lib/api-client';
+import { shouldShowField } from '../utils/conditionalFields';
 
 // Default schema sections
 const DEFAULT_SECTIONS = [
@@ -78,10 +79,14 @@ const SubmitAAR = () => {
     formSchema.fields.forEach((field) => {
       let fieldSchema;
 
+      // Conditional fields with required=true should be optional in schema
+      // They'll be validated only when visible
+      const isConditional = field.conditional?.enabled;
+
       switch (field.type) {
         case 'text':
           fieldSchema = z.string();
-          if (field.required) {
+          if (field.required && !isConditional) {
             fieldSchema = fieldSchema.min(1, `${field.label} is required`);
           } else {
             fieldSchema = fieldSchema.optional();
@@ -96,14 +101,14 @@ const SubmitAAR = () => {
           if (field.validation?.max !== undefined) {
             fieldSchema = fieldSchema.max(field.validation.max, `Maximum value is ${field.validation.max}`);
           }
-          if (!field.required) {
+          if (!field.required || isConditional) {
             fieldSchema = fieldSchema.optional();
           }
           break;
 
         case 'textarea':
           fieldSchema = z.string();
-          if (field.required) {
+          if (field.required && !isConditional) {
             if (field.validation?.minLength) {
               fieldSchema = fieldSchema.min(
                 field.validation.minLength,
@@ -121,7 +126,7 @@ const SubmitAAR = () => {
         case 'smartselect':
         case 'date':
           fieldSchema = z.string();
-          if (field.required) {
+          if (field.required && !isConditional) {
             fieldSchema = fieldSchema.min(1, `${field.label} is required`);
           } else {
             fieldSchema = fieldSchema.optional();
@@ -131,7 +136,7 @@ const SubmitAAR = () => {
         case 'multiselect':
         case 'smartmultiselect':
           fieldSchema = z.array(z.string());
-          if (field.required) {
+          if (field.required && !isConditional) {
             fieldSchema = fieldSchema.min(1, `At least one ${field.label} is required`);
           } else {
             fieldSchema = fieldSchema.optional();
@@ -143,7 +148,7 @@ const SubmitAAR = () => {
             value: z.string(),
             unit: z.string(),
           });
-          if (!field.required) {
+          if (!field.required || isConditional) {
             fieldSchema = fieldSchema.optional();
           }
           break;
@@ -155,7 +160,7 @@ const SubmitAAR = () => {
               unit: z.string(),
             })
           );
-          if (field.required) {
+          if (field.required && !isConditional) {
             fieldSchema = fieldSchema.min(1, `At least one ${field.label} is required`);
           } else {
             fieldSchema = fieldSchema.optional();
@@ -168,7 +173,7 @@ const SubmitAAR = () => {
             unit: z.string(),
             amount: z.union([z.string(), z.number()]),
           });
-          if (!field.required) {
+          if (!field.required || isConditional) {
             fieldSchema = fieldSchema.optional();
           }
           break;
@@ -181,7 +186,7 @@ const SubmitAAR = () => {
               amount: z.union([z.string(), z.number()]),
             })
           );
-          if (field.required) {
+          if (field.required && !isConditional) {
             fieldSchema = fieldSchema.min(1, `At least one ${field.label} is required`);
           } else {
             fieldSchema = fieldSchema.optional();
@@ -190,7 +195,7 @@ const SubmitAAR = () => {
 
         case 'file':
           // File fields are handled separately (not in Zod schema)
-          if (field.required) {
+          if (field.required && !isConditional) {
             fieldSchema = z.any().refine(() => true, `${field.label} is required`);
           } else {
             fieldSchema = z.any().optional();
@@ -217,14 +222,18 @@ const SubmitAAR = () => {
     resolver: zodResolver(zodSchema),
   });
 
+  // Watch all form values for conditional logic evaluation
+  const allFormValues = watch();
+
   // Get sections from schema or use defaults
   const sections = formSchema?.sections || DEFAULT_SECTIONS;
 
-  // Get fields for a section
+  // Get fields for a section (filtered by conditional logic)
   const getFieldsForSection = (sectionId) => {
     if (!formSchema || !formSchema.fields) return [];
     return formSchema.fields
       .filter((f) => f.section === sectionId)
+      .filter((f) => shouldShowField(f, allFormValues)) // Apply conditional logic
       .sort((a, b) => a.order - b.order);
   };
 

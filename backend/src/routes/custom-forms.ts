@@ -49,6 +49,31 @@ const fieldValidator = z.object({
   unitOptions: z.array(z.string()).optional(),
   unitLabel: z.string().optional(),
   amountLabel: z.string().optional(),
+  conditional: z
+    .object({
+      enabled: z.boolean(),
+      operator: z.enum(['AND', 'OR']),
+      conditions: z.array(
+        z.object({
+          fieldId: z.string(),
+          operator: z.enum([
+            'equals',
+            'notEquals',
+            'greaterThan',
+            'lessThan',
+            'contains',
+            'startsWith',
+            'endsWith',
+            'oneOf',
+            'includes',
+            'isEmpty',
+            'isNotEmpty',
+          ]),
+          value: z.union([z.string(), z.number(), z.array(z.string())]).optional(),
+        })
+      ),
+    })
+    .optional(),
 });
 
 // Section validation schema
@@ -159,6 +184,34 @@ app.put('/active', authenticate, requireRole('admin', 'manager'), async (c) => {
         {
           error: 'Validation error',
           message: `Duplicate field IDs found: ${duplicateIds.join(', ')}`,
+        },
+        400
+      );
+    }
+
+    // Validate conditional logic: Check that referenced fields exist
+    const fieldIdSet = new Set(fieldIds);
+    const invalidRefs: string[] = [];
+
+    validated.form_schema.fields.forEach((field) => {
+      if (field.conditional?.enabled) {
+        field.conditional.conditions.forEach((condition) => {
+          if (condition.fieldId && !fieldIdSet.has(condition.fieldId)) {
+            invalidRefs.push(`${field.id} references non-existent field: ${condition.fieldId}`);
+          }
+          // Check for self-reference
+          if (condition.fieldId === field.id) {
+            invalidRefs.push(`${field.id} cannot reference itself`);
+          }
+        });
+      }
+    });
+
+    if (invalidRefs.length > 0) {
+      return c.json(
+        {
+          error: 'Invalid conditional logic',
+          message: invalidRefs.join('; '),
         },
         400
       );

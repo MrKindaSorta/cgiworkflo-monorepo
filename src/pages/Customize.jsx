@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api-client';
+import { detectCircularDependencies } from '../utils/conditionalFields';
 import {
   Plus,
   Trash2,
@@ -29,6 +30,7 @@ import {
   Info,
   Columns3,
   Grid3x3,
+  Zap,
 } from 'lucide-react';
 
 // Field type definitions with descriptions
@@ -285,6 +287,20 @@ const Customize = () => {
 
   // Save schema to database
   const saveSchema = async () => {
+    // Validate for circular dependencies
+    const circularFields = detectCircularDependencies(schema.fields);
+
+    if (circularFields.length > 0) {
+      const fieldNames = circularFields
+        .map((id) => schema.fields.find((f) => f.id === id)?.label || id)
+        .join(', ');
+
+      alert(
+        `Circular dependency detected!\n\nThe following fields have circular conditional dependencies:\n${fieldNames}\n\nPlease remove the circular conditions before saving.`
+      );
+      return;
+    }
+
     try {
       setLoading(true);
       await api.customForms.updateActive(
@@ -362,10 +378,33 @@ const Customize = () => {
 
   // Delete field
   const deleteField = (fieldId) => {
+    // Remove the field AND clean up any conditions referencing it
+    const updatedFields = schema.fields
+      .filter((f) => f.id !== fieldId) // Remove the field
+      .map((f) => {
+        // Clean up conditions in other fields that reference the deleted field
+        if (f.conditional?.enabled) {
+          const cleanedConditions = f.conditional.conditions.filter(
+            (c) => c.fieldId !== fieldId
+          );
+
+          return {
+            ...f,
+            conditional: {
+              ...f.conditional,
+              conditions: cleanedConditions,
+              enabled: cleanedConditions.length > 0,
+            },
+          };
+        }
+        return f;
+      });
+
     setSchema({
       ...schema,
-      fields: schema.fields.filter((f) => f.id !== fieldId),
+      fields: updatedFields,
     });
+
     if (selectedField?.id === fieldId) {
       setSelectedField(null);
     }
@@ -543,6 +582,61 @@ const Customize = () => {
     });
 
     setSchema({ ...schema, sections: newSections });
+  };
+
+  // Conditional logic management functions
+  const addCondition = (fieldId) => {
+    const field = schema.fields.find((f) => f.id === fieldId);
+    if (!field) return;
+
+    const newConditions = [
+      ...(field.conditional?.conditions || []),
+      { fieldId: '', operator: 'equals', value: '' },
+    ];
+
+    updateField(fieldId, {
+      conditional: {
+        ...field.conditional,
+        enabled: true,
+        operator: field.conditional?.operator || 'AND',
+        conditions: newConditions,
+      },
+    });
+  };
+
+  const updateCondition = (fieldId, conditionIndex, updates) => {
+    const field = schema.fields.find((f) => f.id === fieldId);
+    if (!field) return;
+
+    const newConditions = [...(field.conditional?.conditions || [])];
+    newConditions[conditionIndex] = {
+      ...newConditions[conditionIndex],
+      ...updates,
+    };
+
+    updateField(fieldId, {
+      conditional: {
+        ...field.conditional,
+        conditions: newConditions,
+      },
+    });
+  };
+
+  const removeCondition = (fieldId, conditionIndex) => {
+    const field = schema.fields.find((f) => f.id === fieldId);
+    if (!field) return;
+
+    const newConditions = (field.conditional?.conditions || []).filter(
+      (_, i) => i !== conditionIndex
+    );
+
+    updateField(fieldId, {
+      conditional: {
+        ...field.conditional,
+        conditions: newConditions,
+        enabled: newConditions.length > 0,
+      },
+    });
   };
 
   return (
@@ -798,13 +892,20 @@ const Customize = () => {
                                         <span className="text-red-500 ml-1">*</span>
                                       )}
                                     </p>
-                                    <p className={`text-xs truncate ${
-                                      selectedField?.id === field.id
-                                        ? 'text-primary-700 dark:text-primary-300'
-                                        : 'text-gray-500 dark:text-gray-400'
-                                    }`}>
-                                      {field.type}
-                                    </p>
+                                    <div className="flex items-center space-x-2 mt-0.5">
+                                      <p className={`text-xs truncate ${
+                                        selectedField?.id === field.id
+                                          ? 'text-primary-700 dark:text-primary-300'
+                                          : 'text-gray-500 dark:text-gray-400'
+                                      }`}>
+                                        {field.type}
+                                      </p>
+                                      {field.conditional?.enabled && (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                                          <Zap className="w-3 h-3" />
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                   <div className="flex items-center space-x-1">
                                     <button
@@ -1441,6 +1542,195 @@ const Customize = () => {
                       </div>
                     </>
                   )}
+
+                  {/* Conditional Logic */}
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <Zap className="w-4 h-4 text-purple-500" />
+                        <h4 className="text-xs font-semibold text-gray-900 dark:text-white">
+                          Conditional Logic
+                        </h4>
+                      </div>
+                      <input
+                        type="checkbox"
+                        id="conditional-enabled"
+                        checked={selectedField.conditional?.enabled || false}
+                        onChange={(e) =>
+                          updateField(selectedField.id, {
+                            conditional: {
+                              enabled: e.target.checked,
+                              operator: 'AND',
+                              conditions: e.target.checked
+                                ? [{ fieldId: '', operator: 'equals', value: '' }]
+                                : [],
+                            },
+                          })
+                        }
+                        className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                    </div>
+
+                    {selectedField.conditional?.enabled && (
+                      <div className="space-y-3">
+                        {/* Combine Operator */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Show field when:
+                          </label>
+                          <select
+                            value={selectedField.conditional?.operator || 'AND'}
+                            onChange={(e) =>
+                              updateField(selectedField.id, {
+                                conditional: {
+                                  ...selectedField.conditional,
+                                  operator: e.target.value,
+                                },
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                          >
+                            <option value="AND" className="dark:bg-gray-800 dark:text-white">
+                              ALL conditions match (AND)
+                            </option>
+                            <option value="OR" className="dark:bg-gray-800 dark:text-white">
+                              ANY condition matches (OR)
+                            </option>
+                          </select>
+                        </div>
+
+                        {/* Conditions List */}
+                        <div className="space-y-2">
+                          {(selectedField.conditional?.conditions || []).map((condition, index) => (
+                            <div
+                              key={index}
+                              className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg space-y-2 border border-gray-200 dark:border-gray-700"
+                            >
+                              {/* Field Selection */}
+                              <select
+                                value={condition.fieldId}
+                                onChange={(e) =>
+                                  updateCondition(selectedField.id, index, {
+                                    fieldId: e.target.value,
+                                  })
+                                }
+                                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
+                              >
+                                <option value="" className="dark:bg-gray-700 dark:text-white">
+                                  Select field...
+                                </option>
+                                {schema.fields
+                                  .filter((f) => f.id !== selectedField.id)
+                                  .map((f) => (
+                                    <option
+                                      key={f.id}
+                                      value={f.id}
+                                      className="dark:bg-gray-700 dark:text-white"
+                                    >
+                                      {f.label}
+                                    </option>
+                                  ))}
+                              </select>
+
+                              {/* Operator and Value */}
+                              <div className="grid grid-cols-2 gap-2">
+                                <select
+                                  value={condition.operator}
+                                  onChange={(e) =>
+                                    updateCondition(selectedField.id, index, {
+                                      operator: e.target.value,
+                                    })
+                                  }
+                                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-900 dark:text-white"
+                                >
+                                  <option value="equals" className="dark:bg-gray-700 dark:text-white">
+                                    Equals
+                                  </option>
+                                  <option
+                                    value="notEquals"
+                                    className="dark:bg-gray-700 dark:text-white"
+                                  >
+                                    Not Equals
+                                  </option>
+                                  <option
+                                    value="contains"
+                                    className="dark:bg-gray-700 dark:text-white"
+                                  >
+                                    Contains
+                                  </option>
+                                  <option
+                                    value="greaterThan"
+                                    className="dark:bg-gray-700 dark:text-white"
+                                  >
+                                    Greater Than
+                                  </option>
+                                  <option
+                                    value="lessThan"
+                                    className="dark:bg-gray-700 dark:text-white"
+                                  >
+                                    Less Than
+                                  </option>
+                                  <option
+                                    value="isEmpty"
+                                    className="dark:bg-gray-700 dark:text-white"
+                                  >
+                                    Is Empty
+                                  </option>
+                                  <option
+                                    value="isNotEmpty"
+                                    className="dark:bg-gray-700 dark:text-white"
+                                  >
+                                    Is Not Empty
+                                  </option>
+                                  <option value="oneOf" className="dark:bg-gray-700 dark:text-white">
+                                    One Of
+                                  </option>
+                                </select>
+
+                                {/* Value Input */}
+                                {condition.operator !== 'isEmpty' &&
+                                  condition.operator !== 'isNotEmpty' && (
+                                    <input
+                                      type="text"
+                                      value={condition.value || ''}
+                                      onChange={(e) =>
+                                        updateCondition(selectedField.id, index, {
+                                          value: e.target.value,
+                                        })
+                                      }
+                                      placeholder="Value"
+                                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-900 dark:text-white"
+                                    />
+                                  )}
+                              </div>
+
+                              {/* Remove Condition */}
+                              <button
+                                onClick={() => removeCondition(selectedField.id, index)}
+                                className="w-full py-1.5 px-3 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center justify-center space-x-2 text-xs"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Remove Condition</span>
+                              </button>
+                            </div>
+                          ))}
+
+                          {/* Add Condition Button */}
+                          <button
+                            onClick={() => addCondition(selectedField.id)}
+                            className="w-full py-2 px-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors flex items-center justify-center space-x-2"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span className="text-sm font-medium">Add Condition</span>
+                          </button>
+                        </div>
+
+                        <p className="text-xs text-purple-600 dark:text-purple-400 mt-2">
+                          ⚡ This field will only show when conditions are met
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-8">

@@ -7,6 +7,7 @@ import type { Env, Variables } from './types/env';
 // Routes
 import authRoutes from './routes/auth';
 import customFormsRoutes from './routes/custom-forms';
+import userRoutes from './routes/users';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -73,8 +74,10 @@ app.route('/api/auth', authRoutes);
 // Custom Forms routes (protected)
 app.route('/api/custom-forms', customFormsRoutes);
 
+// User management routes (protected, admin only)
+app.route('/api/users', userRoutes);
+
 // TODO: Register additional routes as they are implemented
-// import userRoutes from './routes/users';
 // import aarRoutes from './routes/aars';
 // import messageRoutes from './routes/messages';
 // import categoryRoutes from './routes/categories';

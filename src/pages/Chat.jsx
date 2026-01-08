@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
@@ -176,7 +176,7 @@ const Chat = () => {
     return timeDiff < 60000;
   };
 
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = useCallback(async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !activeConversationId || sending) return;
 
@@ -187,7 +187,7 @@ const Chat = () => {
       console.error('Failed to send message:', error);
       alert('Failed to send message. Please try again.');
     }
-  };
+  }, [newMessage, activeConversationId, sending, sendMessage]);
 
   const getLastMessage = (conversation) => {
     const convMessages = getMessages(conversation.id);
@@ -495,7 +495,7 @@ const Chat = () => {
     );
   };
 
-  const ConversationView = () => {
+  const ConversationView = memo(() => {
     if (!selectedConversation) {
       return (
         <div className="hidden md:flex flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -647,7 +647,7 @@ const Chat = () => {
         </form>
       </div>
     );
-  };
+  });
 
   return (
     <div className="fixed inset-0 top-16 bottom-16 md:static md:h-full flex flex-col md:flex-row bg-white dark:bg-gray-800 overflow-hidden">

@@ -144,8 +144,10 @@ export const api = {
       apiClient.post('/conversations', data),
     getMessages: (conversationId: string, params?: any) =>
       apiClient.get(`/conversations/${conversationId}/messages`, { params }),
-    sendMessage: (conversationId: string, data: { content: string; messageType?: string }) =>
-      apiClient.post(`/conversations/${conversationId}/messages`, data),
+    sendMessage: (
+      conversationId: string,
+      data: { content: string; messageType?: string; metadata?: string }
+    ) => apiClient.post(`/conversations/${conversationId}/messages`, data),
     markAsRead: (conversationId: string) => apiClient.patch(`/conversations/${conversationId}/read`),
     addParticipant: (conversationId: string, userId: string) =>
       apiClient.post(`/conversations/${conversationId}/participants`, { userId }),
@@ -168,6 +170,18 @@ export const api = {
       conversationTimestamps?: Record<string, string>;
       presenceUserIds?: string[];
     }) => apiClient.post('/chat/sync', data),
+  },
+
+  // File Uploads
+  uploads: {
+    uploadFile: (file: File, type: string = 'file') => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', type);
+      return apiClient.post('/uploads', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    },
   },
 };
 

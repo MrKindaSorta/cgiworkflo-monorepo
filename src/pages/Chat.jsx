@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import DOMPurify from 'dompurify';
 import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
+import { api } from '../lib/api-client';
 import {
   MessageSquare,
   Users,
@@ -41,9 +42,13 @@ const Chat = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const attachmentMenuRef = useRef(null);
+  const photoInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Memoize to prevent re-renders when conversations array updates
   const selectedConversation = useMemo(
@@ -187,6 +192,37 @@ const Chat = () => {
       alert('Failed to send message. Please try again.');
     }
   }, [newMessage, activeConversationId, sending, sendMessage]);
+
+  const handleFileUpload = useCallback(async (files, type = 'file') => {
+    if (!files || files.length === 0 || !activeConversationId || uploading) return;
+
+    setUploading(true);
+    setShowAttachmentMenu(false);
+
+    try {
+      for (const file of files) {
+        // Upload file to R2
+        const uploadResponse = await api.uploads.uploadFile(file, type);
+        const { url, filename, size: fileSize, type: fileType } = uploadResponse.data.data;
+
+        // Send message with attachment
+        const metadata = JSON.stringify({
+          url,
+          filename,
+          size: fileSize,
+          type: fileType,
+        });
+
+        const content = type === 'image' ? `📷 ${filename}` : `📎 ${filename}`;
+        await sendMessage(activeConversationId, content, type === 'image' ? 'image' : 'file', metadata);
+      }
+    } catch (error) {
+      console.error('Failed to upload file:', error);
+      alert('Failed to upload file. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  }, [activeConversationId, uploading, sendMessage]);
 
   const getLastMessage = (conversation) => {
     const convMessages = getMessages(conversation.id);
@@ -332,6 +368,19 @@ const Chat = () => {
     const isLastInGroup = !shouldGroupMessage(nextMessage, message);
     const showDateSeparator = shouldShowDateSeparator(message, previousMessage);
 
+    // Parse attachment metadata
+    let attachment = null;
+    if (message.metadata) {
+      try {
+        attachment = JSON.parse(message.metadata);
+      } catch (e) {
+        console.error('Failed to parse message metadata:', e);
+      }
+    }
+
+    const isImageAttachment = message.messageType === 'image' && attachment;
+    const isFileAttachment = message.messageType === 'file' && attachment;
+
     return (
       <>
         {showDateSeparator && (
@@ -369,7 +418,7 @@ const Chat = () => {
             )}
 
             <div
-              className={`px-4 py-2.5 rounded-xl ${
+              className={`${isImageAttachment ? 'p-0' : 'px-4 py-2.5'} rounded-xl ${
                 isOwn
                   ? 'bg-gradient-to-br from-primary-500 to-primary-600 dark:from-primary-600 dark:to-primary-700 text-white shadow-md'
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
@@ -383,10 +432,44 @@ const Chat = () => {
                   : 'rounded-bl-sm'
               }`}
             >
-              <p
-                className="text-[15px] leading-relaxed whitespace-pre-wrap break-words"
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(message.content) }}
-              />
+              {isImageAttachment ? (
+                <div className="flex flex-col">
+                  <img
+                    src={attachment.url}
+                    alt={attachment.filename}
+                    className="max-w-full max-h-96 rounded-xl object-cover cursor-pointer"
+                    onClick={() => window.open(attachment.url, '_blank')}
+                  />
+                  <p
+                    className={`px-4 py-2 text-xs ${
+                      isOwn ? 'text-white/90' : 'text-gray-600 dark:text-gray-400'
+                    }`}
+                  >
+                    {attachment.filename}
+                  </p>
+                </div>
+              ) : isFileAttachment ? (
+                <a
+                  href={attachment.url}
+                  download={attachment.filename}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                >
+                  <File className="w-5 h-5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-medium truncate">{attachment.filename}</p>
+                    <p className={`text-xs ${isOwn ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+                      {(attachment.size / 1024).toFixed(1)} KB
+                    </p>
+                  </div>
+                </a>
+              ) : (
+                <p
+                  className="text-[15px] leading-relaxed whitespace-pre-wrap break-words"
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(message.content) }}
+                />
+              )}
             </div>
 
             {isLastInGroup && (
@@ -471,10 +554,24 @@ const Chat = () => {
     if (!showAttachmentMenu) return null;
 
     const attachmentOptions = [
-      { icon: Image, label: 'Photo', color: 'from-blue-500 to-blue-600' },
-      { icon: Camera, label: 'Camera', color: 'from-green-500 to-green-600' },
-      { icon: File, label: 'Document', color: 'from-purple-500 to-purple-600' },
-      { icon: Paperclip, label: 'File', color: 'from-orange-500 to-orange-600' },
+      {
+        icon: Image,
+        label: 'Photo',
+        color: 'from-blue-500 to-blue-600',
+        action: () => photoInputRef.current?.click()
+      },
+      {
+        icon: Camera,
+        label: 'Camera',
+        color: 'from-green-500 to-green-600',
+        action: () => cameraInputRef.current?.click()
+      },
+      {
+        icon: Paperclip,
+        label: 'File',
+        color: 'from-orange-500 to-orange-600',
+        action: () => fileInputRef.current?.click()
+      },
     ];
 
     return (
@@ -486,10 +583,11 @@ const Chat = () => {
           <button
             key={option.label}
             onClick={() => {
-              alert(`${option.label} attachment selected (mock)`);
+              option.action();
               setShowAttachmentMenu(false);
             }}
-            className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+            disabled={uploading}
+            className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div
               className={`w-10 h-10 rounded-full bg-gradient-to-br ${option.color} text-white flex items-center justify-center shadow-md`}
@@ -499,6 +597,11 @@ const Chat = () => {
             <span className="font-medium text-gray-900 dark:text-gray-100">{option.label}</span>
           </button>
         ))}
+        {uploading && (
+          <div className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 text-center">
+            Uploading...
+          </div>
+        )}
       </div>
     );
   };
@@ -628,6 +731,45 @@ const Chat = () => {
               <Send className="w-5 h-5" />
             </button>
           </div>
+
+          {/* Hidden file inputs */}
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) {
+                handleFileUpload(Array.from(e.target.files), 'image');
+                e.target.value = '';
+              }
+            }}
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) {
+                handleFileUpload(Array.from(e.target.files), 'image');
+                e.target.value = '';
+              }
+            }}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) {
+                handleFileUpload(Array.from(e.target.files), 'file');
+                e.target.value = '';
+              }
+            }}
+          />
         </form>
     </div>
   ) : (

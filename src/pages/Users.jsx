@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Users as UsersIcon, Plus, Edit2, Trash2, X, Loader, Search, Clock } from 'lucide-react';
+import { Users as UsersIcon, Plus, Edit2, Trash2, X, Loader, Search, Clock, ChevronUp, ChevronDown } from 'lucide-react';
 import { formatLastLogin, getRelativeTime } from '../utils/timezone';
 
 // ============================================================================
@@ -19,7 +19,19 @@ const userSchema = z.object({
   franchiseId: z.string().optional(),
   address: z.string().optional(),
   phone: z.string().optional(),
-});
+}).refine(
+  (data) => {
+    // Employees must have a franchiseId
+    if (data.role === 'employee') {
+      return !!data.franchiseId && data.franchiseId !== '';
+    }
+    return true;
+  },
+  {
+    message: 'Employees must be assigned to a franchisee',
+    path: ['franchiseId'],
+  }
+);
 
 const editUserSchema = userSchema.extend({
   password: z.string().min(8).optional().or(z.literal('')),
@@ -40,9 +52,34 @@ const Users = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('created'); // 'created', 'name', 'lastLogin'
+  const [sortBy, setSortBy] = useState('created'); // 'created', 'name', 'lastLogin', 'role', 'email'
+  const [sortDirection, setSortDirection] = useState('desc'); // 'asc' or 'desc'
 
   const canManageUsers = hasPermission('all'); // Only admin
+
+  // Get franchisees for employee assignment
+  const franchisees = useMemo(() => {
+    return users.filter((u) => u.role === 'franchisee');
+  }, [users]);
+
+  // Helper to get franchisee name by ID
+  const getFranchiseeName = (franchiseId) => {
+    if (!franchiseId) return null;
+    const franchisee = users.find((u) => u.id === franchiseId);
+    return franchisee?.name || 'Unknown Franchisee';
+  };
+
+  // Handle sort column click
+  const handleSort = (column) => {
+    if (sortBy === column) {
+      // Toggle direction if same column
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New column - default to desc for time-based, asc for text
+      setSortBy(column);
+      setSortDirection(['name', 'email', 'role'].includes(column) ? 'asc' : 'desc');
+    }
+  };
 
   // Filter and sort users
   const filteredUsers = useMemo(() => {
@@ -61,22 +98,32 @@ const Users = () => {
 
     // Sort
     const sorted = [...filtered].sort((a, b) => {
+      let comparison = 0;
+
       if (sortBy === 'name') {
-        return (a.name || '').localeCompare(b.name || '');
-      }
-      if (sortBy === 'lastLogin') {
+        comparison = (a.name || '').localeCompare(b.name || '');
+      } else if (sortBy === 'email') {
+        comparison = (a.email || '').localeCompare(b.email || '');
+      } else if (sortBy === 'role') {
+        // Custom role order: admin > manager > franchisee > employee
+        const roleOrder = { admin: 0, manager: 1, franchisee: 2, employee: 3 };
+        comparison = (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99);
+      } else if (sortBy === 'lastLogin') {
         const aTime = a.lastLogin ? new Date(a.lastLogin).getTime() : 0;
         const bTime = b.lastLogin ? new Date(b.lastLogin).getTime() : 0;
-        return bTime - aTime; // Most recent first
+        comparison = bTime - aTime;
+      } else {
+        // Default: created
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        comparison = bTime - aTime;
       }
-      // Default: created (most recent first)
-      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return bTime - aTime;
+
+      return sortDirection === 'asc' ? comparison : -comparison;
     });
 
     return sorted;
-  }, [users, searchQuery, sortBy]);
+  }, [users, searchQuery, sortBy, sortDirection]);
 
   // Create user form
   const {
@@ -84,8 +131,13 @@ const Users = () => {
     handleSubmit: handleSubmitCreate,
     formState: { errors: createErrors },
     reset: resetCreate,
+    watch: watchCreate,
   } = useForm({
     resolver: zodResolver(userSchema),
+    defaultValues: {
+      role: '',
+      franchiseId: '',
+    },
   });
 
   // Edit user form
@@ -94,9 +146,14 @@ const Users = () => {
     handleSubmit: handleSubmitEdit,
     formState: { errors: editErrors },
     reset: resetEdit,
+    watch: watchEdit,
   } = useForm({
     resolver: zodResolver(editUserSchema),
   });
+
+  // Watch role changes to show/hide franchisee selector
+  const createRole = watchCreate('role');
+  const editRole = watchEdit('role');
 
   // Handle create user
   const onCreateUser = async (data) => {
@@ -198,34 +255,21 @@ const Users = () => {
         )}
       </div>
 
-      {/* Search and Sort */}
+      {/* Search */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center space-y-3 md:space-y-0 md:space-x-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search users by name, email, or role..."
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600 dark:text-gray-400">Sort by:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="created">Created Date</option>
-              <option value="name">Name</option>
-              <option value="lastLogin">Last Login</option>
-            </select>
-          </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search users by name, email, or role..."
+            className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          />
         </div>
-        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found
+        <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+          <span>{filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found</span>
+          <span className="hidden md:inline">Click column headers to sort</span>
         </div>
       </div>
 
@@ -244,20 +288,63 @@ const Users = () => {
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
-                  <th className="px-4 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Name
+                  <th className="px-4 md:px-6 py-2 md:py-3 text-left">
+                    <button
+                      onClick={() => handleSort('name')}
+                      className="flex items-center space-x-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                    >
+                      <span>Name</span>
+                      {sortBy === 'name' && (
+                        sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                      )}
+                    </button>
+                  </th>
+                  <th className="px-4 md:px-6 py-2 md:py-3 text-left">
+                    <button
+                      onClick={() => handleSort('email')}
+                      className="flex items-center space-x-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                    >
+                      <span>Email</span>
+                      {sortBy === 'email' && (
+                        sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                      )}
+                    </button>
+                  </th>
+                  <th className="px-4 md:px-6 py-2 md:py-3 text-left">
+                    <button
+                      onClick={() => handleSort('role')}
+                      className="flex items-center space-x-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                    >
+                      <span>Role</span>
+                      {sortBy === 'role' && (
+                        sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                      )}
+                    </button>
                   </th>
                   <th className="px-4 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Email
+                    Franchisee
                   </th>
-                  <th className="px-4 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-4 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Last Login
+                  <th className="px-4 md:px-6 py-2 md:py-3 text-left">
+                    <button
+                      onClick={() => handleSort('lastLogin')}
+                      className="flex items-center space-x-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                    >
+                      <span>Last Login</span>
+                      {sortBy === 'lastLogin' && (
+                        sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                      )}
+                    </button>
                   </th>
                   <th className="px-4 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">
-                    Created
+                    <button
+                      onClick={() => handleSort('created')}
+                      className="flex items-center space-x-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                    >
+                      <span>Created</span>
+                      {sortBy === 'created' && (
+                        sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                      )}
+                    </button>
                   </th>
                   {canManageUsers && (
                     <th className="px-4 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -283,6 +370,15 @@ const Users = () => {
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300">
                         {user.role}
                       </span>
+                    </td>
+                    <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap">
+                      {user.role === 'employee' && user.franchiseId ? (
+                        <div className="text-sm text-gray-700 dark:text-gray-300">
+                          {getFranchiseeName(user.franchiseId)}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">-</span>
+                      )}
                     </td>
                     <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-1">
@@ -357,6 +453,11 @@ const Users = () => {
                   <span className="px-2 py-1 text-xs font-semibold rounded-full bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300">
                     {user.role}
                   </span>
+                  {user.role === 'employee' && user.franchiseId && (
+                    <span className="px-2 py-1 text-xs rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
+                      → {getFranchiseeName(user.franchiseId)}
+                    </span>
+                  )}
                   <div className="flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
                     <Clock className="w-3 h-3" />
                     <span title={lastLogin.full}>{lastLogin.relative}</span>
@@ -469,6 +570,34 @@ const Users = () => {
                   <p className="mt-1 text-xs text-red-600 dark:text-red-400">{createErrors.role.message}</p>
                 )}
               </div>
+
+              {/* Franchisee selector - only for employees */}
+              {createRole === 'employee' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Franchisee *
+                  </label>
+                  <select
+                    {...registerCreate('franchiseId')}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">Select franchisee...</option>
+                    {franchisees.map((franchisee) => (
+                      <option key={franchisee.id} value={franchisee.id}>
+                        {franchisee.name} ({franchisee.email})
+                      </option>
+                    ))}
+                  </select>
+                  {createErrors.franchiseId && (
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{createErrors.franchiseId.message}</p>
+                  )}
+                  {franchisees.length === 0 && (
+                    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                      No franchisees available. Create a franchisee first.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -609,6 +738,34 @@ const Users = () => {
                   <p className="mt-1 text-xs text-red-600 dark:text-red-400">{editErrors.role.message}</p>
                 )}
               </div>
+
+              {/* Franchisee selector - only for employees */}
+              {editRole === 'employee' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Franchisee *
+                  </label>
+                  <select
+                    {...registerEdit('franchiseId')}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">Select franchisee...</option>
+                    {franchisees.map((franchisee) => (
+                      <option key={franchisee.id} value={franchisee.id}>
+                        {franchisee.name} ({franchisee.email})
+                      </option>
+                    ))}
+                  </select>
+                  {editErrors.franchiseId && (
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{editErrors.franchiseId.message}</p>
+                  )}
+                  {franchisees.length === 0 && (
+                    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                      No franchisees available. Create a franchisee first.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

@@ -121,13 +121,19 @@ export const api = {
     },
   },
 
-  // Users (To be implemented)
+  // Users
   users: {
     list: () => apiClient.get('/users'),
     get: (id: string) => apiClient.get(`/users/${id}`),
     create: (data: any) => apiClient.post('/users', data),
     update: (id: string, data: any) => apiClient.put(`/users/${id}`, data),
     delete: (id: string) => apiClient.delete(`/users/${id}`),
+    updatePreferences: (preferences: {
+      language?: string;
+      theme?: string;
+      unitArea?: string;
+      unitLiquid?: string;
+    }) => apiClient.patch('/users/preferences', preferences),
   },
 
   // Messages (To be implemented)

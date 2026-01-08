@@ -142,9 +142,12 @@ app.post('/login', async (c) => {
     const body = await c.req.json();
     const validated = loginSchema.parse(body);
 
-    // Find user by email
+    // Find user by email with preferences
     const user = await c.env.DB.prepare(
-      'SELECT id, name, email, password_hash, role, franchise_id as franchiseId FROM users WHERE email = ? AND deleted_at IS NULL'
+      `SELECT id, name, email, password_hash, role, franchise_id as franchiseId,
+              preferences_unit_area as unitArea, preferences_unit_liquid as unitLiquid,
+              preferences_language as language, preferences_theme as theme
+       FROM users WHERE email = ? AND deleted_at IS NULL`
     )
       .bind(validated.email)
       .first();
@@ -162,6 +165,13 @@ app.post('/login', async (c) => {
     if (!isValid) {
       return c.json({ error: 'Invalid credentials' }, 401);
     }
+
+    // Update last_login timestamp
+    await c.env.DB.prepare(
+      "UPDATE users SET last_login = datetime('now') WHERE id = ?"
+    )
+      .bind(user.id)
+      .run();
 
     // Generate JWT token
     const token = await generateToken(
@@ -181,6 +191,12 @@ app.post('/login', async (c) => {
         email: user.email,
         role: user.role,
         franchiseId: user.franchiseId,
+        preferences: {
+          unitArea: user.unitArea || 'sqft',
+          unitLiquid: user.unitLiquid || 'ml',
+          language: user.language || 'en',
+          theme: user.theme || 'light',
+        },
       },
       token,
     });
@@ -287,9 +303,12 @@ app.post('/dev-login', async (c) => {
       return c.json({ error: 'Invalid role' }, 400);
     }
 
-    // Find demo user
+    // Find demo user with preferences
     const user = await c.env.DB.prepare(
-      'SELECT id, name, email, role, franchise_id as franchiseId FROM users WHERE email = ? AND deleted_at IS NULL'
+      `SELECT id, name, email, role, franchise_id as franchiseId,
+              preferences_unit_area as unitArea, preferences_unit_liquid as unitLiquid,
+              preferences_language as language, preferences_theme as theme
+       FROM users WHERE email = ? AND deleted_at IS NULL`
     )
       .bind(email)
       .first();
@@ -303,6 +322,13 @@ app.post('/dev-login', async (c) => {
         404
       );
     }
+
+    // Update last_login timestamp
+    await c.env.DB.prepare(
+      "UPDATE users SET last_login = datetime('now') WHERE id = ?"
+    )
+      .bind(user.id)
+      .run();
 
     // Generate JWT token (skip password verification for dev login)
     const token = await generateToken(
@@ -322,6 +348,12 @@ app.post('/dev-login', async (c) => {
         email: user.email,
         role: user.role,
         franchiseId: user.franchiseId,
+        preferences: {
+          unitArea: user.unitArea || 'sqft',
+          unitLiquid: user.unitLiquid || 'ml',
+          language: user.language || 'en',
+          theme: user.theme || 'light',
+        },
       },
       token,
     });

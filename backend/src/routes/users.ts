@@ -49,12 +49,15 @@ users.get('/', authenticate, requireRole('admin', 'manager'), async (c) => {
   try {
     const db = c.env.DB;
 
-    // Get all non-deleted users
+    // Get all non-deleted users with last_login and preferences
     const result = await db
       .prepare(
         `SELECT
           id, name, email, role, franchise_id as franchiseId,
-          address, phone, created_at as createdAt, updated_at as updatedAt
+          address, phone, last_login as lastLogin,
+          preferences_language as language, preferences_theme as theme,
+          preferences_unit_area as unitArea, preferences_unit_liquid as unitLiquid,
+          created_at as createdAt, updated_at as updatedAt
         FROM users
         WHERE deleted_at IS NULL
         ORDER BY created_at DESC`
@@ -84,7 +87,10 @@ users.get('/:id', authenticate, requireRole('admin', 'manager'), async (c) => {
       .prepare(
         `SELECT
           id, name, email, role, franchise_id as franchiseId,
-          address, phone, created_at as createdAt, updated_at as updatedAt
+          address, phone, last_login as lastLogin,
+          preferences_language as language, preferences_theme as theme,
+          preferences_unit_area as unitArea, preferences_unit_liquid as unitLiquid,
+          created_at as createdAt, updated_at as updatedAt
         FROM users
         WHERE id = ? AND deleted_at IS NULL`
       )
@@ -344,6 +350,84 @@ users.delete('/:id', authenticate, requireRole('admin'), async (c) => {
     if (error instanceof HTTPException) throw error;
     console.error('Error deleting user:', error);
     throw new HTTPException(500, { message: 'Failed to delete user' });
+  }
+});
+
+/**
+ * PATCH /api/users/preferences
+ * Update current user's preferences (any authenticated user)
+ */
+users.patch('/preferences', authenticate, async (c) => {
+  try {
+    const currentUser = c.get('user');
+
+    if (!currentUser) {
+      throw new HTTPException(401, { message: 'Unauthorized' });
+    }
+
+    const body = await c.req.json();
+    const db = c.env.DB;
+
+    // Validate preferences
+    const validPreferences: Record<string, string> = {};
+
+    if (body.language && ['en', 'fr', 'de', 'es', 'ja'].includes(body.language)) {
+      validPreferences.preferences_language = body.language;
+    }
+
+    if (body.theme && ['light', 'dark'].includes(body.theme)) {
+      validPreferences.preferences_theme = body.theme;
+    }
+
+    if (body.unitArea && ['sqft', 'sqm'].includes(body.unitArea)) {
+      validPreferences.preferences_unit_area = body.unitArea;
+    }
+
+    if (body.unitLiquid && ['ml', 'oz', 'l', 'gal'].includes(body.unitLiquid)) {
+      validPreferences.preferences_unit_liquid = body.unitLiquid;
+    }
+
+    if (Object.keys(validPreferences).length === 0) {
+      throw new HTTPException(400, { message: 'No valid preferences to update' });
+    }
+
+    // Build update query
+    const updates = Object.keys(validPreferences).map(key => `${key} = ?`);
+    const values = Object.values(validPreferences);
+    values.push(currentUser.id); // For WHERE clause
+
+    await db
+      .prepare(
+        `UPDATE users SET ${updates.join(', ')}, updated_at = datetime('now') WHERE id = ?`
+      )
+      .bind(...values)
+      .run();
+
+    // Fetch updated preferences
+    const updatedUser = await db
+      .prepare(
+        `SELECT
+          preferences_language as language, preferences_theme as theme,
+          preferences_unit_area as unitArea, preferences_unit_liquid as unitLiquid
+        FROM users WHERE id = ?`
+      )
+      .bind(currentUser.id)
+      .first();
+
+    return c.json({
+      success: true,
+      message: 'Preferences updated successfully',
+      data: {
+        language: updatedUser?.language || 'en',
+        theme: updatedUser?.theme || 'light',
+        unitArea: updatedUser?.unitArea || 'sqft',
+        unitLiquid: updatedUser?.unitLiquid || 'ml',
+      },
+    });
+  } catch (error: any) {
+    if (error instanceof HTTPException) throw error;
+    console.error('Error updating preferences:', error);
+    throw new HTTPException(500, { message: 'Failed to update preferences' });
   }
 });
 

@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Users as UsersIcon, Plus, Edit2, Trash2, X, Loader } from 'lucide-react';
+import { Users as UsersIcon, Plus, Edit2, Trash2, X, Loader, Search, Clock } from 'lucide-react';
+import { formatLastLogin, getRelativeTime } from '../utils/timezone';
 
 // ============================================================================
 // VALIDATION SCHEMA
@@ -38,8 +39,44 @@ const Users = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('created'); // 'created', 'name', 'lastLogin'
 
   const canManageUsers = hasPermission('all'); // Only admin
+
+  // Filter and sort users
+  const filteredUsers = useMemo(() => {
+    let filtered = users;
+
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (user) =>
+          user.name?.toLowerCase().includes(query) ||
+          user.email?.toLowerCase().includes(query) ||
+          user.role?.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === 'name') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      if (sortBy === 'lastLogin') {
+        const aTime = a.lastLogin ? new Date(a.lastLogin).getTime() : 0;
+        const bTime = b.lastLogin ? new Date(b.lastLogin).getTime() : 0;
+        return bTime - aTime; // Most recent first
+      }
+      // Default: created (most recent first)
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    return sorted;
+  }, [users, searchQuery, sortBy]);
 
   // Create user form
   const {
@@ -161,6 +198,37 @@ const Users = () => {
         )}
       </div>
 
+      {/* Search and Sort */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center space-y-3 md:space-y-0 md:space-x-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search users by name, email, or role..."
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600 dark:text-gray-400">Sort by:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="created">Created Date</option>
+              <option value="name">Name</option>
+              <option value="lastLogin">Last Login</option>
+            </select>
+          </div>
+        </div>
+        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found
+        </div>
+      </div>
+
       {/* Loading State */}
       {usersLoading && (
         <div className="flex items-center justify-center py-12">
@@ -186,6 +254,9 @@ const Users = () => {
                     Role
                   </th>
                   <th className="px-4 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Last Login
+                  </th>
+                  <th className="px-4 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">
                     Created
                   </th>
                   {canManageUsers && (
@@ -196,7 +267,9 @@ const Users = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {users.map((user) => (
+                {filteredUsers.map((user) => {
+                  const lastLogin = formatLastLogin(user.lastLogin);
+                  return (
                   <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -211,7 +284,18 @@ const Users = () => {
                         {user.role}
                       </span>
                     </td>
-                    <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap">
+                      <div className="flex items-center space-x-1">
+                        <Clock className="w-3 h-3 text-gray-400" />
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {lastLogin.relative}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {lastLogin.full !== 'Never logged in' ? lastLogin.full : ''}
+                      </div>
+                    </td>
+                    <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden lg:table-cell">
                       {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
                     </td>
                     {canManageUsers && (
@@ -233,14 +317,17 @@ const Users = () => {
                       </td>
                     )}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
           {/* Mobile Cards */}
           <div className="md:hidden divide-y divide-gray-200 dark:divide-gray-700">
-            {users.map((user) => (
+            {filteredUsers.map((user) => {
+              const lastLogin = formatLastLogin(user.lastLogin);
+              return (
               <div key={user.id} className="p-4 space-y-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -266,23 +353,27 @@ const Users = () => {
                     </div>
                   )}
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="px-2 py-1 text-xs font-semibold rounded-full bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300">
                     {user.role}
                   </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
-                  </span>
+                  <div className="flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
+                    <Clock className="w-3 h-3" />
+                    <span title={lastLogin.full}>{lastLogin.relative}</span>
+                  </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Empty State */}
-          {users.length === 0 && (
+          {filteredUsers.length === 0 && (
             <div className="p-8 text-center">
               <UsersIcon className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-              <p className="text-gray-500 dark:text-gray-400">No users found</p>
+              <p className="text-gray-500 dark:text-gray-400">
+                {searchQuery ? `No users match "${searchQuery}"` : 'No users found'}
+              </p>
             </div>
           )}
         </div>

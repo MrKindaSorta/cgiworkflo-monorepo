@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { STORAGE_KEYS, getFromStorage, saveToStorage } from '../utils/localStorage';
+import { api } from '../lib/api-client';
 
 const ThemeContext = createContext(null);
 
@@ -51,11 +52,30 @@ export const ThemeProvider = ({ children }) => {
     });
   };
 
-  const toggleTheme = () => {
+  const toggleTheme = async () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
     applyTheme(newTheme);
+
+    // Save to database if user is authenticated
+    try {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        await api.users.updatePreferences({ theme: newTheme });
+      }
+    } catch (error) {
+      console.error('Error saving theme preference:', error);
+      // Continue anyway - localStorage backup exists
+    }
+  };
+
+  const setThemeFromPreference = (preferredTheme) => {
+    if (preferredTheme && ['light', 'dark'].includes(preferredTheme)) {
+      setTheme(preferredTheme);
+      localStorage.setItem('theme', preferredTheme);
+      applyTheme(preferredTheme);
+    }
   };
 
   const updateBranding = (newBranding) => {
@@ -70,6 +90,7 @@ export const ThemeProvider = ({ children }) => {
   const value = {
     theme,
     toggleTheme,
+    setThemeFromPreference,
     branding,
     updateBranding,
     isDark: theme === 'dark',

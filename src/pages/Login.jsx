@@ -8,9 +8,9 @@ import LanguageSelector from '../components/ui/LanguageSelector';
 import { api } from '../lib/api-client';
 
 const Login = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { login, setCurrentUser } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, setThemeFromPreference } = useTheme();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -33,6 +33,16 @@ const Login = () => {
       localStorage.setItem('authToken', token);
       login(user);
 
+      // Apply user preferences
+      if (user.preferences) {
+        if (user.preferences.theme) {
+          setThemeFromPreference(user.preferences.theme);
+        }
+        if (user.preferences.language) {
+          i18n.changeLanguage(user.preferences.language);
+        }
+      }
+
       navigate('/');
     } catch (err) {
       console.error('Login error:', err);
@@ -53,6 +63,16 @@ const Login = () => {
       // Store token and user
       localStorage.setItem('authToken', token);
       login(user);
+
+      // Apply user preferences
+      if (user.preferences) {
+        if (user.preferences.theme) {
+          setThemeFromPreference(user.preferences.theme);
+        }
+        if (user.preferences.language) {
+          i18n.changeLanguage(user.preferences.language);
+        }
+      }
 
       navigate('/');
     } catch (err) {

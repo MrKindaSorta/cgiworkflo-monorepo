@@ -282,14 +282,20 @@ const Chat = () => {
           <div className="flex items-baseline justify-between mb-1">
             <h3
               className={`font-semibold truncate text-base ${
-                hasUnread ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
+                isActive
+                  ? 'text-primary-700 dark:text-primary-300'
+                  : hasUnread
+                  ? 'text-gray-900 dark:text-white'
+                  : 'text-gray-700 dark:text-gray-300'
               }`}
             >
               {displayName}
             </h3>
             <span
               className={`text-xs ml-2 flex-shrink-0 ${
-                hasUnread
+                isActive
+                  ? 'text-primary-600 dark:text-primary-400 font-semibold'
+                  : hasUnread
                   ? 'text-primary-600 dark:text-primary-400 font-semibold'
                   : 'text-gray-500 dark:text-gray-500'
               }`}
@@ -300,7 +306,9 @@ const Chat = () => {
           <div className="flex items-center justify-between gap-2">
             <p
               className={`text-sm truncate ${
-                hasUnread
+                isActive
+                  ? 'text-primary-600 dark:text-primary-300 font-medium'
+                  : hasUnread
                   ? 'text-gray-900 dark:text-gray-200 font-medium'
                   : 'text-gray-600 dark:text-gray-400'
               }`}

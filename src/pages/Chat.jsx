@@ -283,7 +283,7 @@ const Chat = () => {
 
   const MessageBubble = ({ message, previousMessage, nextMessage }) => {
     const isOwn = message.senderId === user.id;
-    const sender = getUserById(message.senderId);
+    const sender = users.find((u) => u.id === message.senderId) || { name: message.senderName || 'Unknown' };
     const isGrouped = shouldGroupMessage(message, previousMessage);
     const isLastInGroup = !shouldGroupMessage(nextMessage, message);
     const showDateSeparator = shouldShowDateSeparator(message, previousMessage);

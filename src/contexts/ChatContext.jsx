@@ -317,6 +317,7 @@ export const ChatProvider = ({ children }) => {
         data.name = name;
       }
 
+      console.log('[ChatContext] Creating conversation:', data);
       const response = await api.conversations.create(data);
 
       const newConvId = response.data.data.id;
@@ -331,7 +332,11 @@ export const ChatProvider = ({ children }) => {
 
       return newConvId;
     } catch (error) {
-      console.error('Failed to create conversation:', error);
+      console.error('[ChatContext] Failed to create conversation:', error);
+      console.error('[ChatContext] Request data was:', { type, participantIds, name });
+      if (error.response?.data) {
+        console.error('[ChatContext] API error response:', error.response.data);
+      }
       throw error;
     }
   };

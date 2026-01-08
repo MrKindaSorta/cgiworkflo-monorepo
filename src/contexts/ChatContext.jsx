@@ -288,6 +288,7 @@ export const ChatProvider = ({ children }) => {
       setLoading(true);
       const response = await api.conversations.list();
       const convList = response.data.data || [];
+      console.log('[ChatContext] Loaded conversations:', convList);
       setConversations(convList);
 
       // Initialize conversation timestamps
@@ -298,6 +299,13 @@ export const ChatProvider = ({ children }) => {
       setConversationTimestamps(timestamps);
 
       setLastSyncTimestamp(new Date().toISOString());
+
+      // Auto-load messages for all conversations with data
+      for (const conv of convList) {
+        if (conv.lastMessageId) {
+          await loadMessages(conv.id);
+        }
+      }
     } catch (error) {
       console.error('Failed to load conversations:', error);
     } finally {
@@ -367,6 +375,7 @@ export const ChatProvider = ({ children }) => {
     try {
       const response = await api.conversations.getMessages(conversationId, options);
       const msgs = response.data.data || [];
+      console.log(`[ChatContext] Loaded ${msgs.length} messages for conversation ${conversationId}:`, msgs);
 
       setMessages((prev) => ({
         ...prev,

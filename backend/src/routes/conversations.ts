@@ -101,6 +101,49 @@ app.get('/', async (c) => {
 });
 
 /**
+ * GET /api/conversations/open
+ * Get or create the global open chat conversation
+ * IMPORTANT: Must be before /:id route
+ */
+app.get('/open', async (c) => {
+  try {
+    const db = c.env.DB;
+
+    // Find existing open chat
+    const openChat = await db
+      .prepare(`SELECT id FROM conversations WHERE type = 'open' AND deleted_at IS NULL LIMIT 1`)
+      .first();
+
+    if (openChat) {
+      return c.json({
+        success: true,
+        data: { id: openChat.id },
+      });
+    }
+
+    // Create open chat if it doesn't exist
+    const conversationId = nanoid();
+    const timestamp = new Date().toISOString();
+
+    await db
+      .prepare(
+        `INSERT INTO conversations (id, type, name, created_at, updated_at)
+        VALUES (?, 'open', 'Open Chat', ?, ?)`
+      )
+      .bind(conversationId, timestamp, timestamp)
+      .run();
+
+    return c.json({
+      success: true,
+      data: { id: conversationId },
+    });
+  } catch (error: any) {
+    console.error('Error getting open chat:', error);
+    throw new HTTPException(500, { message: 'Failed to get open chat' });
+  }
+});
+
+/**
  * GET /api/conversations/:id
  * Get single conversation details
  */
@@ -172,48 +215,6 @@ app.get('/:id', async (c) => {
     if (error instanceof HTTPException) throw error;
     console.error('Error fetching conversation:', error);
     throw new HTTPException(500, { message: 'Failed to fetch conversation' });
-  }
-});
-
-/**
- * GET /api/conversations/open
- * Get or create the global open chat conversation
- */
-app.get('/open', async (c) => {
-  try {
-    const db = c.env.DB;
-
-    // Find existing open chat
-    const openChat = await db
-      .prepare(`SELECT id FROM conversations WHERE type = 'open' AND deleted_at IS NULL LIMIT 1`)
-      .first();
-
-    if (openChat) {
-      return c.json({
-        success: true,
-        data: { id: openChat.id },
-      });
-    }
-
-    // Create open chat if it doesn't exist
-    const conversationId = nanoid();
-    const timestamp = new Date().toISOString();
-
-    await db
-      .prepare(
-        `INSERT INTO conversations (id, type, name, created_at, updated_at)
-        VALUES (?, 'open', 'Open Chat', ?, ?)`
-      )
-      .bind(conversationId, timestamp, timestamp)
-      .run();
-
-    return c.json({
-      success: true,
-      data: { id: conversationId },
-    });
-  } catch (error: any) {
-    console.error('Error getting open chat:', error);
-    throw new HTTPException(500, { message: 'Failed to get open chat' });
   }
 });
 

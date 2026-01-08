@@ -180,12 +180,26 @@ export const ChatProvider = ({ children }) => {
         .filter((id) => id !== currentUser?.id);
 
       // Call batched sync endpoint
-      const response = await api.chat.sync({
-        lastSync: lastSyncTimestamp,
-        activeConversationId,
-        conversationTimestamps,
-        presenceUserIds: [...new Set(presenceUserIds)].slice(0, 50), // Dedupe & limit
-      });
+      const syncData = {};
+
+      if (lastSyncTimestamp) {
+        syncData.lastSync = lastSyncTimestamp;
+      }
+
+      if (activeConversationId) {
+        syncData.activeConversationId = activeConversationId;
+      }
+
+      if (conversationTimestamps && Object.keys(conversationTimestamps).length > 0) {
+        syncData.conversationTimestamps = conversationTimestamps;
+      }
+
+      const uniquePresenceIds = [...new Set(presenceUserIds)].filter(Boolean).slice(0, 50);
+      if (uniquePresenceIds.length > 0) {
+        syncData.presenceUserIds = uniquePresenceIds;
+      }
+
+      const response = await api.chat.sync(syncData);
 
       const data = response.data.data;
 

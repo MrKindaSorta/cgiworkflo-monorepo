@@ -6,8 +6,8 @@ const Branding = () => {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center">
-        <Palette className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 md:p-6 text-center">
+        <Palette className="w-12 h-12 mx-auto text-gray-400 mb-4" />
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
           {t('branding.title')}
         </h1>

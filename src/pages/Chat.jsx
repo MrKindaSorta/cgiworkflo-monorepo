@@ -201,7 +201,7 @@ const Chat = () => {
     return (
       <button
         onClick={() => setSelectedConversation(conversation)}
-        className={`w-full p-4 flex items-start gap-3 transition-all duration-200 border-b ${
+        className={`w-full p-3 md:p-4 flex items-start gap-3 transition-all duration-200 border-b ${
           isActive
             ? 'bg-primary-50 dark:bg-primary-900/50 border-primary-200 dark:border-primary-800 border-l-4 border-l-primary-500 dark:border-l-primary-400'
             : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/70'
@@ -314,7 +314,7 @@ const Chat = () => {
             )}
 
             <div
-              className={`px-4 py-2.5 rounded-2xl ${
+              className={`px-4 py-2.5 rounded-xl ${
                 isOwn
                   ? 'bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-md'
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
@@ -352,9 +352,9 @@ const Chat = () => {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md m-4 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md m-4 overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between p-3 md:p-4 md:p-5 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">New Conversation</h2>
             <button
               onClick={() => setShowNewChatModal(false)}
@@ -365,7 +365,7 @@ const Chat = () => {
           </div>
 
           {/* Content */}
-          <div className="p-6">
+          <div className="p-3 md:p-4 md:p-5">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Select a user to start a conversation:
             </p>
@@ -431,7 +431,7 @@ const Chat = () => {
     return (
       <div
         ref={attachmentMenuRef}
-        className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-2 min-w-[200px]"
+        className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-2 min-w-[200px]"
       >
         {attachmentOptions.map((option) => (
           <button
@@ -459,7 +459,7 @@ const Chat = () => {
       return (
         <div className="hidden md:flex flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900">
           <div className="text-center">
-            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-full flex items-center justify-center">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-full flex items-center justify-center">
               <MessageSquare className="w-12 h-12 text-primary-600 dark:text-primary-400" />
             </div>
             <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
@@ -547,7 +547,7 @@ const Chat = () => {
         <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 bg-gray-50 dark:bg-gray-900">
           {conversationMessages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full">
-              <div className="w-20 h-20 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
                 <MessageSquare className="w-10 h-10 text-gray-400 dark:text-gray-500" />
               </div>
               <p className="text-gray-600 dark:text-gray-400 text-center">
@@ -592,13 +592,13 @@ const Chat = () => {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder={t('chat.typeMessage')}
-                className="w-full px-5 py-3.5 rounded-2xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                className="w-full px-5 py-3.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
               />
             </div>
             <button
               type="submit"
               disabled={!newMessage.trim()}
-              className="p-3.5 bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-2xl hover:from-primary-600 hover:to-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-primary-500/25 flex-shrink-0"
+              className="p-3.5 bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-xl hover:from-primary-600 hover:to-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-primary-500/25 flex-shrink-0"
             >
               <Send className="w-5 h-5" />
             </button>
@@ -617,7 +617,7 @@ const Chat = () => {
         } md:w-96 flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700`}
       >
         {/* Header */}
-        <div className="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="p-3 md:p-4 md:p-3 md:p-4 md:p-5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {t('chat.title')}
@@ -690,7 +690,7 @@ const Chat = () => {
         <div className="flex-1 overflow-y-auto">
           {filteredConversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-              <div className="w-20 h-20 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
                 <MessageSquare className="w-10 h-10 text-gray-400 dark:text-gray-500" />
               </div>
               <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">

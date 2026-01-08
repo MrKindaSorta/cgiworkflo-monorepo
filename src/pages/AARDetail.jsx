@@ -55,7 +55,7 @@ const AARDetail = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
       <button
         onClick={() => navigate(-1)}
         className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
@@ -67,7 +67,7 @@ const AARDetail = () => {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
             {aar.category} - {aar.subCategory} {aar.model}
           </h1>
           <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
@@ -119,7 +119,7 @@ const AARDetail = () => {
         )}
 
         {/* Details */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-4 md:space-y-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               Damage Information

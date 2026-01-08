@@ -21,9 +21,9 @@ const Analytics = () => {
   }, {});
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
           {t('analytics.title')}
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
@@ -31,12 +31,12 @@ const Analytics = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total AARs</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
+              <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mt-2">
                 {totalAARs}
               </p>
             </div>
@@ -46,11 +46,11 @@ const Analytics = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Views</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
+              <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mt-2">
                 {totalViews}
               </p>
             </div>
@@ -60,11 +60,11 @@ const Analytics = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Upvotes</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
+              <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mt-2">
                 {totalUpvotes}
               </p>
             </div>
@@ -75,9 +75,9 @@ const Analytics = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 shadow-sm">
+          <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white mb-3">
             AARs by Category
           </h2>
           <div className="space-y-3">
@@ -100,8 +100,8 @@ const Analytics = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 shadow-sm">
+          <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white mb-3">
             Materials Used
           </h2>
           <div className="space-y-3">

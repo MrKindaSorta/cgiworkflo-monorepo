@@ -26,9 +26,9 @@ const Dashboard = () => {
   const showStats = hasPermission('view_analytics') || hasPermission('all');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
           {t('dashboard.title')}
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
@@ -38,8 +38,8 @@ const Dashboard = () => {
 
       {/* Stats Grid */}
       {showStats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-6 shadow-sm">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -55,7 +55,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -71,7 +71,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -87,7 +87,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -107,8 +107,8 @@ const Dashboard = () => {
 
       {/* Recent AARs */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-        <div className="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white">
+        <div className="p-3 md:p-5 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
             {t('dashboard.recentAARs')}
           </h2>
         </div>
@@ -118,7 +118,7 @@ const Dashboard = () => {
               <Link
                 key={aar.id}
                 to={`/aar/${aar.id}`}
-                className="block p-4 md:p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                className="block p-3 md:p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
@@ -151,7 +151,7 @@ const Dashboard = () => {
               </Link>
             ))
           ) : (
-            <div className="p-8 text-center">
+            <div className="p-4 md:p-6 text-center">
               <p className="text-gray-500 dark:text-gray-400">No AARs yet. Create your first one!</p>
               <Link
                 to="/submit"

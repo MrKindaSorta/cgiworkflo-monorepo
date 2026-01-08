@@ -7,7 +7,7 @@ const Header = ({ onMenuToggle }) => {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-16">
+    <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-14">
       <div className="flex items-center justify-between h-full px-4">
         <button
           onClick={onMenuToggle}

@@ -14,7 +14,7 @@ const Layout = () => {
       {/* Mobile Header - Fixed at top */}
       <Header onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)} />
 
-      <div className="flex h-[calc(100vh-4rem)] md:h-full">
+      <div className="flex h-[calc(100vh-3.5rem)] md:h-full">
         {/* Desktop Sidebar - Static on left */}
         <div className="hidden md:flex md:flex-shrink-0">
           <div className="flex flex-col w-64">
@@ -23,8 +23,8 @@ const Layout = () => {
         </div>
 
         {/* Main Content Area */}
-        <div className={`flex-1 min-h-0 ${isFullPageRoute ? '' : 'overflow-y-auto'} pt-16 md:pt-0`}>
-          <main className={`${isFullPageRoute ? 'h-full' : 'p-4 md:p-8 pb-20 md:pb-8'}`}>
+        <div className={`flex-1 min-h-0 ${isFullPageRoute ? '' : 'overflow-y-auto'} pt-14 md:pt-0`}>
+          <main className={`${isFullPageRoute ? 'h-full' : 'p-3 md:p-6 pb-16 md:pb-6'}`}>
             <Outlet />
           </main>
         </div>

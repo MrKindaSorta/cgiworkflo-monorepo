@@ -266,9 +266,9 @@ const SubmitAAR = () => {
   if (!formSchema.fields || formSchema.fields.length === 0) {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-8 text-center">
-          <Settings className="w-16 h-16 mx-auto text-yellow-600 dark:text-yellow-400 mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-5 md:p-6 text-center">
+          <Settings className="w-12 h-12 mx-auto text-yellow-600 dark:text-yellow-400 mb-3" />
+          <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white mb-2">
             No Form Fields Configured
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
@@ -290,9 +290,9 @@ const SubmitAAR = () => {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4 md:mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
             {t('aar.submit')}
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
@@ -310,7 +310,7 @@ const SubmitAAR = () => {
         )}
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
         {sections.map((section) => {
           const sectionFields = getFieldsForSection(section.id);
           if (sectionFields.length === 0) return null;
@@ -318,13 +318,13 @@ const SubmitAAR = () => {
           return (
             <div
               key={section.id}
-              className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-6 shadow-sm space-y-4"
+              className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 shadow-sm space-y-3"
             >
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
                 {section.name}
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 {sectionFields.map((field) => (
                   <div
                     key={field.id}

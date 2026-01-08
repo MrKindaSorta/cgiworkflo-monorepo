@@ -60,7 +60,7 @@ const Sidebar = ({ mobile = false, onItemClick = () => {} }) => {
   return (
     <div className="flex flex-col h-full w-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
       {/* Logo / Brand */}
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         {branding.logo ? (
           <img src={branding.logo} alt={t('app.name')} className="h-10 w-auto" />
         ) : (
@@ -76,7 +76,7 @@ const Sidebar = ({ mobile = false, onItemClick = () => {} }) => {
       </div>
 
       {/* User Info */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="p-3 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold">
             {currentUser?.name?.[0]?.toUpperCase()}
@@ -93,7 +93,7 @@ const Sidebar = ({ mobile = false, onItemClick = () => {} }) => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
         {navItems.map(
           (item) =>
             item.show && (
@@ -102,7 +102,7 @@ const Sidebar = ({ mobile = false, onItemClick = () => {} }) => {
                 to={item.path}
                 onClick={onItemClick}
                 className={({ isActive }) =>
-                  `flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                  `flex items-center space-x-3 px-3 py-3 rounded-lg transition-colors ${
                     isActive
                       ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -125,7 +125,7 @@ const Sidebar = ({ mobile = false, onItemClick = () => {} }) => {
       </nav>
 
       {/* Settings */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+      <div className="p-3 border-t border-gray-200 dark:border-gray-700 space-y-1.5">
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-700 dark:text-gray-300">
             {t('settings.theme')}

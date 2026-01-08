@@ -16,9 +16,9 @@ const BrowseAARs = () => {
   const filteredAARs = searchAARs(searchQuery, filters);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
           {t('aar.browse')}
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
@@ -27,7 +27,7 @@ const BrowseAARs = () => {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-6 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 shadow-sm space-y-4">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
@@ -53,7 +53,7 @@ const BrowseAARs = () => {
       </div>
 
       {/* Results */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
         {filteredAARs.map((aar) => (
           <Link
             key={aar.id}
@@ -71,7 +71,7 @@ const BrowseAARs = () => {
                 <span className="text-gray-400">No Image</span>
               )}
             </div>
-            <div className="p-4">
+            <div className="p-3">
               <h3 className="font-semibold text-gray-900 dark:text-white truncate">
                 {aar.category} - {aar.subCategory} {aar.model}
               </h3>
@@ -94,7 +94,7 @@ const BrowseAARs = () => {
       </div>
 
       {filteredAARs.length === 0 && (
-        <div className="text-center py-12">
+        <div className="text-center py-8">
           <p className="text-gray-500 dark:text-gray-400">No AARs found</p>
         </div>
       )}

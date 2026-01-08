@@ -88,9 +88,9 @@ const Login = () => {
       </div>
 
       <div className="max-w-md w-full">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-5 md:p-6">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
               {t('app.name')}
             </h1>
             <p className="text-gray-600 dark:text-gray-400">{t('app.tagline')}</p>

@@ -307,11 +307,17 @@ export const ChatProvider = ({ children }) => {
 
   const createConversation = async (type, participantIds, name = null) => {
     try {
-      const response = await api.conversations.create({
+      const data = {
         type,
         participantIds,
-        name,
-      });
+      };
+
+      // Only include name if it's provided (for groups)
+      if (name) {
+        data.name = name;
+      }
+
+      const response = await api.conversations.create(data);
 
       const newConvId = response.data.data.id;
 

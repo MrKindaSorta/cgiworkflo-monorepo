@@ -120,5 +120,67 @@
     "darkMode": "Modo oscuro",
     "area": "Área",
     "liquid": "Líquido"
+  },
+  "customize": {
+    "title": "Personalizar formulario",
+    "tooltips": {
+      "fieldTypes": {
+        "text": "Single-line text for short answers like names, models, or IDs. Supports placeholder text and can be marked as required.",
+        "textarea": "Multi-line text for longer descriptions or detailed notes. Perfect for damage descriptions or repair process details. You can set a minimum character count.",
+        "number": "Numeric input with optional min/max validation. Use for quantities, measurements, repair hours, or costs. Supports decimals.",
+        "select": "Fixed list of options defined by you. Users must pick one. Use this when you want strict control over allowed values (e.g., damage types).",
+        "multiselect": "Like dropdown but users can select multiple options with checkboxes. Good for selecting multiple tools or materials from your predefined list.",
+        "date": "Date picker with optional min/max date restrictions. Use for repair dates, incident dates, or deadlines.",
+        "file": "Let users upload files (photos, PDFs, documents). Configure file types allowed and whether to accept single or multiple files. Supports drag-and-drop.",
+        "smartselect": "🌟 Searchable dropdown that learns! Users can pick existing options OR type to create new ones. The list grows automatically with each submission. Great for dynamic lists like paint brands or tool names.",
+        "smartmultiselect": "🌟 Multi-select version of Smart Dropdown. Users can select multiple items from existing options or create new ones on the fly. Perfect for techniques used, materials, or accessories.",
+        "dualfield": "⚙️ Advanced: Combines a searchable value with a fixed unit. Example: 'Red' + 'mL'. Use for materials with measurements like paint colors and volumes.",
+        "multidualfield": "⚙️ Advanced: Multiple rows of dual fields. Users can add more rows with + button. Example: Track 3 paint colors, each with different volumes.",
+        "triplefield": "⚙️ Advanced: Value + Unit + Amount in one field. Example: 'Red' + 'mL' + '250' = 250 mL of Red paint. Most precise option for material tracking.",
+        "multitriplefield": "⚙️ Advanced: Multiple rows of triple fields. Each row tracks value + unit + exact quantity. Perfect for complex repairs with many materials."
+      },
+      "properties": {
+        "label": "The field name shown to users. Make it clear and specific (e.g., 'Vehicle Make' instead of just 'Make').",
+        "placeholder": "Example text shown inside the field before users type. Use this to guide users (e.g., 'Enter make like Ford, Toyota, Honda').",
+        "required": "When checked, users MUST fill this field before submitting. Use for essential information only.",
+        "section": "Organize fields into groups. Fields in the same section appear together on the form. This helps users navigate long forms.",
+        "options": "Define the fixed list of choices. Users can only pick from these options. Order matters - options appear in this order.",
+        "initialOptions": "Starting options for the searchable dropdown. Users can add new options when submitting, which become available for future submissions.",
+        "valueOptions": "The searchable dropdown part. Example: color names like 'Red', 'Blue', 'Black'. Users can search existing or create new values.",
+        "unitLabel": "Label for the unit selector. Example: 'Volume', 'Size', 'Weight'. Helps users understand what the unit dropdown represents.",
+        "unitOptions": "Fixed list of measurement units. Example: 'mL', 'oz', 'Quart', 'Liter'. These cannot be created by users - only you can define them.",
+        "amountLabel": "Label for the numeric quantity field. Example: 'Amount', 'Quantity', 'Volume'. Helps users know what number to enter.",
+        "minValue": "Minimum allowed value. Users will see an error if they enter a number below this. Leave blank for no minimum.",
+        "maxValue": "Maximum allowed value. Users will see an error if they enter a number above this. Leave blank for no maximum.",
+        "minLength": "Minimum number of characters required. Use this to ensure users provide detailed descriptions (e.g., at least 20 characters).",
+        "minDate": "Earliest selectable date. Example: Set to today to prevent past dates. Leave blank to allow any past date.",
+        "maxDate": "Latest selectable date. Example: Set to 1 year from now to prevent far future dates. Leave blank to allow any future date.",
+        "multiple": "When checked, users can upload multiple files at once. When unchecked, only one file allowed. Use multiple for before/after photos.",
+        "accept": "Restrict file types. Examples: 'image/*' (any image), '.pdf' (PDFs only), '.doc,.docx' (Word documents). Leave blank to allow all types."
+      },
+      "conditional": {
+        "toggle": "🔮 Show or hide this field based on what users enter in other fields. Example: Only show 'Leather Type' if 'Material' equals 'Leather'. This keeps forms clean and relevant.",
+        "operator": "Choose how to combine multiple conditions:\n\nALL conditions match (AND): Field shows only if EVERY condition is true. Use when all requirements must be met.\n\nANY condition matches (OR): Field shows if ANY condition is true. Use when you want flexibility - meeting one condition is enough.",
+        "fieldSelect": "Choose which field to watch. The selected field's value will determine whether this field shows. You can only reference fields above this one in the form.",
+        "comparison": "How to compare the field's value:\n\n• Equals: Exact match (e.g., Category equals 'Vehicle')\n• Not Equals: Anything except this value\n• Contains: Value includes this text\n• Greater Than / Less Than: For numbers or dates\n• Is Empty / Is Not Empty: Check if field is blank or filled\n• One Of: Value is in a comma-separated list",
+        "value": "The value to compare against. Enter exactly what the field value should equal, contain, or be compared to. Case-insensitive for text.",
+        "addCondition": "Add another condition. Multiple conditions let you create complex logic like 'Show if Category = Vehicle AND Year > 2010'. Remember to set the AND/OR option above.",
+        "circularWarning": "This creates a circular dependency where fields depend on each other in a loop. Remove one of the conditions in the chain to fix."
+      },
+      "sections": {
+        "add": "Organize your form into sections like 'Basic Info', 'Damage Details', 'Repair Process'. Sections help users navigate and make long forms less overwhelming.",
+        "moveUp": "Move this section up in the form order. Sections appear in this order to users. Put most important information first.",
+        "moveDown": "Move this section down in the form order. Sections appear in this order to users. Put most important information first.",
+        "edit": "Rename this section. Clear section names help users understand what information to provide in each part of the form.",
+        "delete": "Delete this section. Fields inside will move to the first section. You cannot undo this action."
+      },
+      "actions": {
+        "builder": "Edit mode: Add, remove, and configure form fields. Changes are not saved until you click 'Save'.",
+        "preview": "See how the form looks to users who submit AARs. This is view-only - go back to Builder to make changes.",
+        "json": "View the raw form configuration as JSON. Useful for developers or exporting form structure.",
+        "reset": "⚠️ Restore the default form configuration. This deletes ALL your customizations permanently. You cannot undo this.",
+        "save": "Save your changes to the database. Changes are not applied until you save. The form will update immediately for all users."
+      }
+    }
   }
 }

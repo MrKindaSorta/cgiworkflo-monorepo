@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api-client';
 import { detectCircularDependencies } from '../utils/conditionalFields';
+import HelpTooltip from '../components/ui/HelpTooltip';
 import {
   Plus,
   Trash2,
@@ -248,7 +249,6 @@ const Customize = () => {
   const [editingSection, setEditingSection] = useState(null);
   const [sectionForm, setSectionForm] = useState({ id: '', name: '' });
   const [loading, setLoading] = useState(false);
-  const [hoveredFieldType, setHoveredFieldType] = useState(null);
 
   // Load schema from API (with localStorage fallback)
   useEffect(() => {
@@ -655,55 +655,65 @@ const Customize = () => {
           <div className="flex items-center space-x-2">
             {/* View Toggle */}
             <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-              <button
-                onClick={() => setView('builder')}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  view === 'builder'
-                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400'
-                }`}
-              >
-                <Settings className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setView('preview')}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  view === 'preview'
-                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400'
-                }`}
-              >
-                <Eye className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setView('json')}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  view === 'json'
-                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400'
-                }`}
-              >
-                <Code className="w-4 h-4" />
-              </button>
+              <HelpTooltip translationKey="customize.tooltips.actions.builder" side="bottom">
+                <button
+                  onClick={() => setView('builder')}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    view === 'builder'
+                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+              </HelpTooltip>
+              <HelpTooltip translationKey="customize.tooltips.actions.preview" side="bottom">
+                <button
+                  onClick={() => setView('preview')}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    view === 'preview'
+                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+              </HelpTooltip>
+              <HelpTooltip translationKey="customize.tooltips.actions.json" side="bottom">
+                <button
+                  onClick={() => setView('json')}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    view === 'json'
+                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  <Code className="w-4 h-4" />
+                </button>
+              </HelpTooltip>
             </div>
 
-            <button
-              onClick={resetSchema}
-              disabled={loading}
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span className="hidden md:inline">{loading ? 'Resetting...' : 'Reset'}</span>
-            </button>
+            <HelpTooltip translationKey="customize.tooltips.actions.reset" side="bottom">
+              <button
+                onClick={resetSchema}
+                disabled={loading}
+                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span className="hidden md:inline">{loading ? 'Resetting...' : 'Reset'}</span>
+              </button>
+            </HelpTooltip>
 
-            <button
-              onClick={saveSchema}
-              disabled={loading}
-              className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium transition-colors flex items-center space-x-2"
-            >
-              <Save className="w-4 h-4" />
-              <span className="hidden md:inline">{loading ? 'Saving...' : 'Save'}</span>
-            </button>
+            <HelpTooltip translationKey="customize.tooltips.actions.save" side="bottom">
+              <button
+                onClick={saveSchema}
+                disabled={loading}
+                className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium transition-colors flex items-center space-x-2"
+              >
+                <Save className="w-4 h-4" />
+                <span className="hidden md:inline">{loading ? 'Saving...' : 'Save'}</span>
+              </button>
+            </HelpTooltip>
           </div>
         </div>
       </div>
@@ -722,7 +732,7 @@ const Customize = () => {
                   <div key={fieldType.type} className="relative">
                     <button
                       onClick={() => addField(fieldType)}
-                      className="w-full flex items-center space-x-3 p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-primary-500 dark:hover:border-primary-500 transition-colors text-left"
+                      className="w-full flex items-center space-x-3 p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-primary-500 dark:hover:border-primary-500 transition-colors text-left group"
                     >
                       <fieldType.icon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                       <div className="flex-1">
@@ -730,31 +740,12 @@ const Customize = () => {
                           {fieldType.label}
                         </p>
                       </div>
-                      <div
-                        className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        onMouseEnter={() => setHoveredFieldType(fieldType.type)}
-                        onMouseLeave={() => setHoveredFieldType(null)}
-                      >
-                        <Info className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                      </div>
+                      <HelpTooltip
+                        translationKey={`customize.tooltips.fieldTypes.${fieldType.type}`}
+                        side="right"
+                        iconColor="text-gray-400 dark:text-gray-500 group-hover:text-primary-500"
+                      />
                     </button>
-
-                    {/* Tooltip */}
-                    {hoveredFieldType === fieldType.type && (
-                      <div
-                        className="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] w-96 max-w-[90vw] p-6 bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl border-2 border-primary-500 dark:border-primary-400"
-                        onMouseEnter={() => setHoveredFieldType(fieldType.type)}
-                        onMouseLeave={() => setHoveredFieldType(null)}
-                      >
-                        <div className="flex items-start space-x-3 mb-3">
-                          <fieldType.icon className="w-6 h-6 text-primary-400 flex-shrink-0 mt-0.5" />
-                          <h4 className="text-base font-bold text-white">{fieldType.label}</h4>
-                        </div>
-                        <p className="text-sm text-gray-300 leading-relaxed">
-                          {fieldType.description}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -763,13 +754,19 @@ const Customize = () => {
             {/* Center Panel - Form Builder */}
             <div className="md:col-span-6 overflow-y-auto p-4 md:p-6">
               {/* Add Section Button */}
-              <button
-                onClick={() => openSectionModal()}
-                className="w-full mb-4 flex items-center justify-center space-x-2 p-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
-              >
-                <FolderPlus className="w-5 h-5" />
-                <span className="font-medium">Add New Section</span>
-              </button>
+              <div className="relative group mb-4">
+                <button
+                  onClick={() => openSectionModal()}
+                  className="w-full flex items-center justify-center space-x-2 p-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                >
+                  <FolderPlus className="w-5 h-5" />
+                  <span className="font-medium">Add New Section</span>
+                  <HelpTooltip
+                    translationKey="customize.tooltips.sections.add"
+                    side="bottom"
+                  />
+                </button>
+              </div>
 
               <div className="space-y-4">
                 {schema.sections.map((section) => {
@@ -802,51 +799,55 @@ const Customize = () => {
 
                         {/* Section Actions */}
                         <div className="flex items-center space-x-1 ml-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              moveSectionUp(section.id);
-                            }}
-                            disabled={schema.sections.findIndex((s) => s.id === section.id) === 0}
-                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Move up"
-                          >
-                            <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              moveSectionDown(section.id);
-                            }}
-                            disabled={
-                              schema.sections.findIndex((s) => s.id === section.id) ===
-                              schema.sections.length - 1
-                            }
-                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Move down"
-                          >
-                            <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openSectionModal(section);
-                            }}
-                            className="p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/20"
-                            title="Edit section"
-                          >
-                            <Edit2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteSection(section.id);
-                            }}
-                            className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/20"
-                            title="Delete section"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
-                          </button>
+                          <HelpTooltip translationKey="customize.tooltips.sections.moveUp" side="top">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                moveSectionUp(section.id);
+                              }}
+                              disabled={schema.sections.findIndex((s) => s.id === section.id) === 0}
+                              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                            </button>
+                          </HelpTooltip>
+                          <HelpTooltip translationKey="customize.tooltips.sections.moveDown" side="top">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                moveSectionDown(section.id);
+                              }}
+                              disabled={
+                                schema.sections.findIndex((s) => s.id === section.id) ===
+                                schema.sections.length - 1
+                              }
+                              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                            </button>
+                          </HelpTooltip>
+                          <HelpTooltip translationKey="customize.tooltips.sections.edit" side="top">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openSectionModal(section);
+                              }}
+                              className="p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/20"
+                            >
+                              <Edit2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                            </button>
+                          </HelpTooltip>
+                          <HelpTooltip translationKey="customize.tooltips.sections.delete" side="top">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteSection(section.id);
+                              }}
+                              className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/20"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                            </button>
+                          </HelpTooltip>
                         </div>
                       </div>
 
@@ -854,9 +855,21 @@ const Customize = () => {
                       {expandedSections[section.id] && (
                         <div className="border-t border-gray-200 dark:border-gray-700 p-4 space-y-2">
                           {sectionFields.length === 0 ? (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                              No fields in this section. Add fields from the library.
-                            </p>
+                            <div className="text-center py-8 px-4">
+                              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
+                                <Plus className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+                              </div>
+                              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                No fields in this section yet
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                                Click fields from the Field Library on the left to add them to this section
+                              </p>
+                              <div className="flex items-center justify-center space-x-2 text-xs text-primary-600 dark:text-primary-400">
+                                <Info className="w-4 h-4" />
+                                <span>Tip: Start with basic fields like Text or Dropdown</span>
+                              </div>
+                            </div>
                           ) : (
                             sectionFields.map((field) => {
                               const FieldIcon =
@@ -968,8 +981,12 @@ const Customize = () => {
 
                   {/* Label */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Label
+                    <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <span>Label</span>
+                      <HelpTooltip
+                        translationKey="customize.tooltips.properties.label"
+                        side="left"
+                      />
                     </label>
                     <input
                       type="text"
@@ -981,8 +998,12 @@ const Customize = () => {
 
                   {/* Placeholder */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Placeholder
+                    <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <span>Placeholder</span>
+                      <HelpTooltip
+                        translationKey="customize.tooltips.properties.placeholder"
+                        side="left"
+                      />
                     </label>
                     <input
                       type="text"
@@ -995,28 +1016,38 @@ const Customize = () => {
                   </div>
 
                   {/* Required */}
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="required"
-                      checked={selectedField.required}
-                      onChange={(e) =>
-                        updateField(selectedField.id, { required: e.target.checked })
-                      }
-                      className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="required"
+                        checked={selectedField.required}
+                        onChange={(e) =>
+                          updateField(selectedField.id, { required: e.target.checked })
+                        }
+                        className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <label
+                        htmlFor="required"
+                        className="ml-2 text-xs font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        Required field
+                      </label>
+                    </div>
+                    <HelpTooltip
+                      translationKey="customize.tooltips.properties.required"
+                      side="left"
                     />
-                    <label
-                      htmlFor="required"
-                      className="ml-2 text-xs font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      Required field
-                    </label>
                   </div>
 
                   {/* Section */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Section
+                    <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <span>Section</span>
+                      <HelpTooltip
+                        translationKey="customize.tooltips.properties.section"
+                        side="left"
+                      />
                     </label>
                     <select
                       value={selectedField.section}
@@ -1041,8 +1072,12 @@ const Customize = () => {
                   {/* Options for select/multiselect */}
                   {(selectedField.type === 'select' || selectedField.type === 'multiselect') && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Options
+                      <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <span>Options</span>
+                        <HelpTooltip
+                          translationKey="customize.tooltips.properties.options"
+                          side="left"
+                        />
                       </label>
                       <div className="space-y-2">
                         {(selectedField.options || []).map((option, index) => (
@@ -1086,8 +1121,12 @@ const Customize = () => {
                   {/* Options for smart select/multiselect */}
                   {(selectedField.type === 'smartselect' || selectedField.type === 'smartmultiselect') && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Initial Options
+                      <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <span>Initial Options</span>
+                        <HelpTooltip
+                          translationKey="customize.tooltips.properties.initialOptions"
+                          side="left"
+                        />
                       </label>
                       <div className="space-y-2">
                         {(selectedField.options || []).map((option, index) => (
@@ -1136,8 +1175,12 @@ const Customize = () => {
                     <>
                       {/* Value Options (Smart Dropdown) */}
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Value Options (Searchable)
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <span>Value Options (Searchable)</span>
+                          <HelpTooltip
+                            translationKey="customize.tooltips.properties.valueOptions"
+                            side="left"
+                          />
                         </label>
                         <div className="space-y-2">
                           {(selectedField.options || []).map((option, index) => (
@@ -1182,8 +1225,12 @@ const Customize = () => {
 
                       {/* Unit Label */}
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Unit Label
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <span>Unit Label</span>
+                          <HelpTooltip
+                            translationKey="customize.tooltips.properties.unitLabel"
+                            side="left"
+                          />
                         </label>
                         <input
                           type="text"
@@ -1201,8 +1248,12 @@ const Customize = () => {
 
                       {/* Unit Options (Fixed Dropdown) */}
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Unit Options (Fixed)
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <span>Unit Options (Fixed)</span>
+                          <HelpTooltip
+                            translationKey="customize.tooltips.properties.unitOptions"
+                            side="left"
+                          />
                         </label>
                         <div className="space-y-2">
                           {(selectedField.unitOptions || []).map((option, index) => (
@@ -1252,8 +1303,12 @@ const Customize = () => {
                     <>
                       {/* Value Options (Smart Dropdown) */}
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Value Options (Searchable)
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <span>Value Options (Searchable)</span>
+                          <HelpTooltip
+                            translationKey="customize.tooltips.properties.valueOptions"
+                            side="left"
+                          />
                         </label>
                         <div className="space-y-2">
                           {(selectedField.options || []).map((option, index) => (
@@ -1298,8 +1353,12 @@ const Customize = () => {
 
                       {/* Unit Label */}
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Unit Label
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <span>Unit Label</span>
+                          <HelpTooltip
+                            translationKey="customize.tooltips.properties.unitLabel"
+                            side="left"
+                          />
                         </label>
                         <input
                           type="text"
@@ -1317,8 +1376,12 @@ const Customize = () => {
 
                       {/* Unit Options (Fixed Dropdown) */}
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Unit Options (Fixed)
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <span>Unit Options (Fixed)</span>
+                          <HelpTooltip
+                            translationKey="customize.tooltips.properties.unitOptions"
+                            side="left"
+                          />
                         </label>
                         <div className="space-y-2">
                           {(selectedField.unitOptions || []).map((option, index) => (
@@ -1363,8 +1426,12 @@ const Customize = () => {
 
                       {/* Amount Label */}
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Amount Label
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <span>Amount Label</span>
+                          <HelpTooltip
+                            translationKey="customize.tooltips.properties.amountLabel"
+                            side="left"
+                          />
                         </label>
                         <input
                           type="text"
@@ -1386,8 +1453,12 @@ const Customize = () => {
                   {selectedField.type === 'number' && (
                     <>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Min Value (Optional)
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <span>Min Value (Optional)</span>
+                          <HelpTooltip
+                            translationKey="customize.tooltips.properties.minValue"
+                            side="left"
+                          />
                         </label>
                         <input
                           type="number"
@@ -1406,8 +1477,12 @@ const Customize = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Max Value (Optional)
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <span>Max Value (Optional)</span>
+                          <HelpTooltip
+                            translationKey="customize.tooltips.properties.maxValue"
+                            side="left"
+                          />
                         </label>
                         <input
                           type="number"
@@ -1431,8 +1506,12 @@ const Customize = () => {
                   {/* Validation for textarea */}
                   {selectedField.type === 'textarea' && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Min Length (Optional)
+                      <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <span>Min Length (Optional)</span>
+                        <HelpTooltip
+                          translationKey="customize.tooltips.properties.minLength"
+                          side="left"
+                        />
                       </label>
                       <input
                         type="number"
@@ -1459,8 +1538,12 @@ const Customize = () => {
                   {selectedField.type === 'date' && (
                     <>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Min Date (Optional)
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <span>Min Date (Optional)</span>
+                          <HelpTooltip
+                            translationKey="customize.tooltips.properties.minDate"
+                            side="left"
+                          />
                         </label>
                         <input
                           type="date"
@@ -1480,8 +1563,12 @@ const Customize = () => {
                         </p>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Max Date (Optional)
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <span>Max Date (Optional)</span>
+                          <HelpTooltip
+                            translationKey="customize.tooltips.properties.maxDate"
+                            side="left"
+                          />
                         </label>
                         <input
                           type="date"
@@ -1506,26 +1593,36 @@ const Customize = () => {
                   {/* File upload settings */}
                   {selectedField.type === 'file' && (
                     <>
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="multiple"
-                          checked={selectedField.multiple || false}
-                          onChange={(e) =>
-                            updateField(selectedField.id, { multiple: e.target.checked })
-                          }
-                          className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="multiple"
+                            checked={selectedField.multiple || false}
+                            onChange={(e) =>
+                              updateField(selectedField.id, { multiple: e.target.checked })
+                            }
+                            className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          />
+                          <label
+                            htmlFor="multiple"
+                            className="ml-2 text-xs font-medium text-gray-700 dark:text-gray-300"
+                          >
+                            Allow multiple files
+                          </label>
+                        </div>
+                        <HelpTooltip
+                          translationKey="customize.tooltips.properties.multiple"
+                          side="left"
                         />
-                        <label
-                          htmlFor="multiple"
-                          className="ml-2 text-xs font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          Allow multiple files
-                        </label>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Accepted File Types
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <span>Accepted File Types</span>
+                          <HelpTooltip
+                            translationKey="customize.tooltips.properties.accept"
+                            side="left"
+                          />
                         </label>
                         <input
                           type="text"
@@ -1551,6 +1648,11 @@ const Customize = () => {
                         <h4 className="text-xs font-semibold text-gray-900 dark:text-white">
                           Conditional Logic
                         </h4>
+                        <HelpTooltip
+                          translationKey="customize.tooltips.conditional.toggle"
+                          side="left"
+                          iconColor="text-purple-400 dark:text-purple-500"
+                        />
                       </div>
                       <input
                         type="checkbox"
@@ -1575,8 +1677,13 @@ const Customize = () => {
                       <div className="space-y-3">
                         {/* Combine Operator */}
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Show field when:
+                          <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <span>Show field when:</span>
+                            <HelpTooltip
+                              translationKey="customize.tooltips.conditional.operator"
+                              side="left"
+                              maxWidth={400}
+                            />
                           </label>
                           <select
                             value={selectedField.conditional?.operator || 'AND'}
@@ -1607,101 +1714,122 @@ const Customize = () => {
                               className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg space-y-2 border border-gray-200 dark:border-gray-700"
                             >
                               {/* Field Selection */}
-                              <select
-                                value={condition.fieldId}
-                                onChange={(e) =>
-                                  updateCondition(selectedField.id, index, {
-                                    fieldId: e.target.value,
-                                  })
-                                }
-                                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
-                              >
-                                <option value="" className="dark:bg-gray-700 dark:text-white">
-                                  Select field...
-                                </option>
-                                {schema.fields
-                                  .filter((f) => f.id !== selectedField.id)
-                                  .map((f) => (
-                                    <option
-                                      key={f.id}
-                                      value={f.id}
-                                      className="dark:bg-gray-700 dark:text-white"
-                                    >
-                                      {f.label}
-                                    </option>
-                                  ))}
-                              </select>
-
-                              {/* Operator and Value */}
-                              <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="flex items-center space-x-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                  <span>If this field:</span>
+                                  <HelpTooltip
+                                    translationKey="customize.tooltips.conditional.fieldSelect"
+                                    side="left"
+                                  />
+                                </label>
                                 <select
-                                  value={condition.operator}
+                                  value={condition.fieldId}
                                   onChange={(e) =>
                                     updateCondition(selectedField.id, index, {
-                                      operator: e.target.value,
+                                      fieldId: e.target.value,
                                     })
                                   }
-                                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-900 dark:text-white"
+                                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
                                 >
-                                  <option value="equals" className="dark:bg-gray-700 dark:text-white">
-                                    Equals
+                                  <option value="" className="dark:bg-gray-700 dark:text-white">
+                                    Select field...
                                   </option>
-                                  <option
-                                    value="notEquals"
-                                    className="dark:bg-gray-700 dark:text-white"
-                                  >
-                                    Not Equals
-                                  </option>
-                                  <option
-                                    value="contains"
-                                    className="dark:bg-gray-700 dark:text-white"
-                                  >
-                                    Contains
-                                  </option>
-                                  <option
-                                    value="greaterThan"
-                                    className="dark:bg-gray-700 dark:text-white"
-                                  >
-                                    Greater Than
-                                  </option>
-                                  <option
-                                    value="lessThan"
-                                    className="dark:bg-gray-700 dark:text-white"
-                                  >
-                                    Less Than
-                                  </option>
-                                  <option
-                                    value="isEmpty"
-                                    className="dark:bg-gray-700 dark:text-white"
-                                  >
-                                    Is Empty
-                                  </option>
-                                  <option
-                                    value="isNotEmpty"
-                                    className="dark:bg-gray-700 dark:text-white"
-                                  >
-                                    Is Not Empty
-                                  </option>
-                                  <option value="oneOf" className="dark:bg-gray-700 dark:text-white">
-                                    One Of
-                                  </option>
+                                  {schema.fields
+                                    .filter((f) => f.id !== selectedField.id)
+                                    .map((f) => (
+                                      <option
+                                        key={f.id}
+                                        value={f.id}
+                                        className="dark:bg-gray-700 dark:text-white"
+                                      >
+                                        {f.label}
+                                      </option>
+                                    ))}
                                 </select>
+                              </div>
 
-                                {/* Value Input */}
-                                {condition.operator !== 'isEmpty' &&
-                                  condition.operator !== 'isNotEmpty' && (
-                                    <input
-                                      type="text"
-                                      value={condition.value || ''}
-                                      onChange={(e) =>
-                                        updateCondition(selectedField.id, index, {
-                                          value: e.target.value,
-                                        })
-                                      }
-                                      placeholder="Value"
-                                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-900 dark:text-white"
-                                    />
-                                  )}
+                              {/* Operator and Value */}
+                              <div>
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                    Comparison:
+                                  </label>
+                                  <HelpTooltip
+                                    translationKey="customize.tooltips.conditional.comparison"
+                                    side="left"
+                                    maxWidth={400}
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <select
+                                    value={condition.operator}
+                                    onChange={(e) =>
+                                      updateCondition(selectedField.id, index, {
+                                        operator: e.target.value,
+                                      })
+                                    }
+                                    className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-900 dark:text-white"
+                                  >
+                                    <option value="equals" className="dark:bg-gray-700 dark:text-white">
+                                      Equals
+                                    </option>
+                                    <option
+                                      value="notEquals"
+                                      className="dark:bg-gray-700 dark:text-white"
+                                    >
+                                      Not Equals
+                                    </option>
+                                    <option
+                                      value="contains"
+                                      className="dark:bg-gray-700 dark:text-white"
+                                    >
+                                      Contains
+                                    </option>
+                                    <option
+                                      value="greaterThan"
+                                      className="dark:bg-gray-700 dark:text-white"
+                                    >
+                                      Greater Than
+                                    </option>
+                                    <option
+                                      value="lessThan"
+                                      className="dark:bg-gray-700 dark:text-white"
+                                    >
+                                      Less Than
+                                    </option>
+                                    <option
+                                      value="isEmpty"
+                                      className="dark:bg-gray-700 dark:text-white"
+                                    >
+                                      Is Empty
+                                    </option>
+                                    <option
+                                      value="isNotEmpty"
+                                      className="dark:bg-gray-700 dark:text-white"
+                                    >
+                                      Is Not Empty
+                                    </option>
+                                    <option value="oneOf" className="dark:bg-gray-700 dark:text-white">
+                                      One Of
+                                    </option>
+                                  </select>
+
+                                  {/* Value Input */}
+                                  {condition.operator !== 'isEmpty' &&
+                                    condition.operator !== 'isNotEmpty' && (
+                                      <input
+                                        type="text"
+                                        value={condition.value || ''}
+                                        onChange={(e) =>
+                                          updateCondition(selectedField.id, index, {
+                                            value: e.target.value,
+                                          })
+                                        }
+                                        placeholder="Value"
+                                        className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-900 dark:text-white"
+                                      />
+                                    )}
+                                </div>
                               </div>
 
                               {/* Remove Condition */}
@@ -1716,13 +1844,22 @@ const Customize = () => {
                           ))}
 
                           {/* Add Condition Button */}
-                          <button
-                            onClick={() => addCondition(selectedField.id)}
-                            className="w-full py-2 px-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors flex items-center justify-center space-x-2"
-                          >
-                            <Plus className="w-4 h-4" />
-                            <span className="text-sm font-medium">Add Condition</span>
-                          </button>
+                          <div>
+                            <div className="flex items-center space-x-2 mb-2">
+                              <HelpTooltip
+                                translationKey="customize.tooltips.conditional.addCondition"
+                                side="left"
+                                maxWidth={400}
+                              />
+                            </div>
+                            <button
+                              onClick={() => addCondition(selectedField.id)}
+                              className="w-full py-2 px-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors flex items-center justify-center space-x-2"
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span className="text-sm font-medium">Add Condition</span>
+                            </button>
+                          </div>
                         </div>
 
                         <p className="text-xs text-purple-600 dark:text-purple-400 mt-2">
@@ -1733,11 +1870,20 @@ const Customize = () => {
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <Settings className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Select a field to edit its properties
+                <div className="text-center py-12 px-4">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 mb-4">
+                    <Settings className="w-10 h-10 text-primary-600 dark:text-primary-400" />
+                  </div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
+                    Field Properties
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Click any field in the center panel to edit its properties here
                   </p>
+                  <div className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs">
+                    <Info className="w-4 h-4" />
+                    <span>Properties include label, placeholder, validation, and conditional logic</span>
+                  </div>
                 </div>
               )}
             </div>

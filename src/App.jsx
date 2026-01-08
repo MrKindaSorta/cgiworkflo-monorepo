@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AARProvider } from './contexts/AARContext';
+import { ChatProvider } from './contexts/ChatContext';
 import Login from './pages/Login';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
@@ -56,9 +57,11 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AARProvider>
-          <AppRoutes />
-        </AARProvider>
+        <ChatProvider>
+          <AARProvider>
+            <AppRoutes />
+          </AARProvider>
+        </ChatProvider>
       </AuthProvider>
     </ThemeProvider>
   );

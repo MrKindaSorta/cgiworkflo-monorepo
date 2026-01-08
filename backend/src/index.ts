@@ -8,6 +8,9 @@ import type { Env, Variables } from './types/env';
 import authRoutes from './routes/auth';
 import customFormsRoutes from './routes/custom-forms';
 import userRoutes from './routes/users';
+import conversationRoutes from './routes/conversations';
+import presenceRoutes from './routes/presence';
+import chatSyncRoutes from './routes/chat-sync';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -77,9 +80,17 @@ app.route('/api/custom-forms', customFormsRoutes);
 // User management routes (protected, admin only)
 app.route('/api/users', userRoutes);
 
+// Conversation and messaging routes (protected)
+app.route('/api/conversations', conversationRoutes);
+
+// Presence tracking routes (protected)
+app.route('/api/presence', presenceRoutes);
+
+// Chat sync route for efficient polling (protected)
+app.route('/api/chat', chatSyncRoutes);
+
 // TODO: Register additional routes as they are implemented
 // import aarRoutes from './routes/aars';
-// import messageRoutes from './routes/messages';
 // import categoryRoutes from './routes/categories';
 // import analyticsRoutes from './routes/analytics';
 

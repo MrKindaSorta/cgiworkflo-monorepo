@@ -136,13 +136,38 @@ export const api = {
     }) => apiClient.patch('/users/preferences', preferences),
   },
 
-  // Messages (To be implemented)
-  messages: {
-    getConversations: () => apiClient.get('/conversations'),
-    getMessages: (conversationId: string) =>
-      apiClient.get(`/conversations/${conversationId}/messages`),
-    sendMessage: (conversationId: string, content: string) =>
-      apiClient.post(`/conversations/${conversationId}/messages`, { content }),
+  // Conversations & Messaging
+  conversations: {
+    list: () => apiClient.get('/conversations'),
+    get: (id: string) => apiClient.get(`/conversations/${id}`),
+    create: (data: { type: string; participantIds: string[]; name?: string }) =>
+      apiClient.post('/conversations', data),
+    getMessages: (conversationId: string, params?: any) =>
+      apiClient.get(`/conversations/${conversationId}/messages`, { params }),
+    sendMessage: (conversationId: string, data: { content: string; messageType?: string }) =>
+      apiClient.post(`/conversations/${conversationId}/messages`, data),
+    markAsRead: (conversationId: string) => apiClient.patch(`/conversations/${conversationId}/read`),
+    addParticipant: (conversationId: string, userId: string) =>
+      apiClient.post(`/conversations/${conversationId}/participants`, { userId }),
+    removeParticipant: (conversationId: string, userId: string) =>
+      apiClient.delete(`/conversations/${conversationId}/participants/${userId}`),
+    getOpen: () => apiClient.get('/conversations/open'),
+  },
+
+  // Presence & Online Status
+  presence: {
+    heartbeat: () => apiClient.post('/presence/heartbeat'),
+    getStatus: (userIds: string[]) => apiClient.post('/presence/status', { userIds }),
+  },
+
+  // Batched Sync for Efficient Polling
+  chat: {
+    sync: (data: {
+      lastSync?: string;
+      activeConversationId?: string;
+      conversationTimestamps?: Record<string, string>;
+      presenceUserIds?: string[];
+    }) => apiClient.post('/chat/sync', data),
   },
 };
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { mockMessages, mockConversations } from '../mocks/messages';
-import { getUserById, mockUsers } from '../mocks/users';
+import { useAuth } from '../contexts/AuthContext';
+import { useChat } from '../contexts/ChatContext';
 import {
   MessageSquare,
   Users,
@@ -22,11 +22,22 @@ import {
 
 const Chat = () => {
   const { t } = useTranslation();
-  const user = mockUsers[0];
+  const { currentUser: user, users } = useAuth();
+  const {
+    conversations,
+    activeConversationId,
+    setActiveConversationId,
+    sendMessage,
+    markAsRead,
+    getMessages,
+    createConversation,
+    isUserOnline,
+    loading,
+    sending,
+  } = useChat();
+
   const [activeTab, setActiveTab] = useState('direct');
-  const [selectedConversation, setSelectedConversation] = useState(null);
-  const [messages, setMessages] = useState([...mockMessages]);
-  const [conversations, setConversations] = useState([...mockConversations]);
+  const selectedConversation = conversations.find((c) => c.id === activeConversationId);
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewChatModal, setShowNewChatModal] = useState(false);
@@ -35,9 +46,11 @@ const Chat = () => {
   const inputRef = useRef(null);
   const attachmentMenuRef = useRef(null);
 
+  const conversationMessages = activeConversationId ? getMessages(activeConversationId) : [];
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, selectedConversation]);
+  }, [conversationMessages, selectedConversation]);
 
   useEffect(() => {
     if (selectedConversation && inputRef.current) {
@@ -61,6 +74,23 @@ const Chat = () => {
     };
   }, [showAttachmentMenu]);
 
+  const getOtherParticipant = (conversation) => {
+    if (conversation.type !== 'direct') return null;
+    const participants = conversation.participants || [];
+    const otherId = participants.find((p) => p.userId !== user.id)?.userId;
+    return users.find((u) => u.id === otherId);
+  };
+
+  const getConversationName = (conversation) => {
+    if (conversation.type === 'open') return 'Open Chat';
+    if (conversation.type === 'group') return conversation.name || 'Unnamed Group';
+    if (conversation.type === 'direct') {
+      const otherUser = getOtherParticipant(conversation);
+      return otherUser?.name || 'Unknown User';
+    }
+    return 'Unknown';
+  };
+
   const filteredConversations = conversations
     .filter((conv) => {
       if (activeTab === 'direct') return conv.type === 'direct';
@@ -73,16 +103,6 @@ const Chat = () => {
       const name = getConversationName(conv).toLowerCase();
       return name.includes(searchQuery.toLowerCase());
     });
-
-  const conversationMessages = selectedConversation
-    ? messages.filter((msg) => msg.conversationId === selectedConversation.id)
-    : [];
-
-  const getOtherParticipant = (conversation) => {
-    if (conversation.type !== 'direct') return null;
-    const otherId = conversation.participants.find((id) => id !== user.id);
-    return getUserById(otherId);
-  };
 
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
@@ -119,42 +139,24 @@ const Chat = () => {
     return timeDiff < 60000;
   };
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedConversation) return;
+    if (!newMessage.trim() || !activeConversationId || sending) return;
 
-    const newMsg = {
-      id: String(messages.length + 1),
-      conversationId: selectedConversation.id,
-      senderId: user.id,
-      content: newMessage.trim(),
-      timestamp: new Date().toISOString(),
-      read: true,
-    };
-
-    setMessages([...messages, newMsg]);
-    setConversations(
-      conversations.map((conv) =>
-        conv.id === selectedConversation.id
-          ? { ...conv, lastMessageId: newMsg.id, updatedAt: newMsg.timestamp }
-          : conv
-      )
-    );
-    setNewMessage('');
-  };
-
-  const getConversationName = (conversation) => {
-    if (conversation.type === 'group' || conversation.type === 'open') {
-      return conversation.name;
+    try {
+      await sendMessage(activeConversationId, newMessage.trim());
+      setNewMessage('');
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      alert('Failed to send message. Please try again.');
     }
-    const other = getOtherParticipant(conversation);
-    return other?.name || 'Unknown';
   };
 
   const getLastMessage = (conversation) => {
-    const lastMsg = messages.find((msg) => msg.id === conversation.lastMessageId);
-    if (!lastMsg) return '';
+    const convMessages = getMessages(conversation.id);
+    if (convMessages.length === 0) return '';
 
+    const lastMsg = convMessages[convMessages.length - 1];
     const isOwn = lastMsg.senderId === user.id;
     const prefix = isOwn ? 'You: ' : '';
     const content =
@@ -200,7 +202,10 @@ const Chat = () => {
 
     return (
       <button
-        onClick={() => setSelectedConversation(conversation)}
+        onClick={() => {
+          setActiveConversationId(conversation.id);
+          markAsRead(conversation.id);
+        }}
         className={`w-full p-3 md:p-4 flex items-start gap-3 transition-all duration-200 border-b ${
           isActive
             ? 'bg-primary-50 dark:bg-primary-900/50 border-primary-200 dark:border-primary-800 border-l-4 border-l-primary-500 dark:border-l-primary-400'
@@ -224,9 +229,15 @@ const Chat = () => {
               getInitials(displayName)
             )}
           </div>
-          {conversation.type === 'direct' && (
-            <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full"></div>
-          )}
+          {conversation.type === 'direct' && (() => {
+            const participants = conversation.participants || [];
+            const otherId = participants.find((p) => p.userId !== user.id)?.userId;
+            const online = otherId ? isUserOnline(otherId) : false;
+
+            return online && (
+              <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full"></div>
+            );
+          })()}
         </div>
 
         {/* Content */}
@@ -348,7 +359,7 @@ const Chat = () => {
   const NewChatModal = () => {
     if (!showNewChatModal) return null;
 
-    const availableUsers = mockUsers.filter((u) => u.id !== user.id);
+    const availableUsers = users.filter((u) => u.id !== user.id);
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -373,22 +384,15 @@ const Chat = () => {
               {availableUsers.map((availableUser) => (
                 <button
                   key={availableUser.id}
-                  onClick={() => {
-                    // Find or create conversation with this user
-                    const existingConv = conversations.find(
-                      (c) =>
-                        c.type === 'direct' &&
-                        c.participants.includes(user.id) &&
-                        c.participants.includes(availableUser.id)
-                    );
-
-                    if (existingConv) {
-                      setSelectedConversation(existingConv);
-                    } else {
-                      // Create new conversation (mock)
-                      alert(`Start conversation with ${availableUser.name} (mock)`);
+                  onClick={async () => {
+                    try {
+                      const newConvId = await createConversation('direct', [availableUser.id]);
+                      setActiveConversationId(newConvId);
+                      setShowNewChatModal(false);
+                    } catch (error) {
+                      console.error('Failed to create conversation:', error);
+                      alert('Failed to create conversation. Please try again.');
                     }
-                    setShowNewChatModal(false);
                   }}
                   className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
                 >
@@ -485,7 +489,7 @@ const Chat = () => {
         <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
-              onClick={() => setSelectedConversation(null)}
+              onClick={() => setActiveConversationId(null)}
               className="md:hidden p-2 -ml-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-5 h-5 text-gray-700 dark:text-gray-300" />

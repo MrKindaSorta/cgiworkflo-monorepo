@@ -265,12 +265,22 @@ export const ChatProvider = ({ children }) => {
         });
       });
 
-      const response = await api.chat.sync({
-        lastSync: lastSyncTimestampRef.current,
-        activeConversationId: activeConversationIdRef.current,
-        conversationTimestamps,
-        presenceUserIds: presenceUserIds.slice(0, 50), // Limit to 50
-      });
+      // Build request payload (omit null/undefined values)
+      const syncPayload = {};
+      if (lastSyncTimestampRef.current) {
+        syncPayload.lastSync = lastSyncTimestampRef.current;
+      }
+      if (activeConversationIdRef.current) {
+        syncPayload.activeConversationId = activeConversationIdRef.current;
+      }
+      if (Object.keys(conversationTimestamps).length > 0) {
+        syncPayload.conversationTimestamps = conversationTimestamps;
+      }
+      if (presenceUserIds.length > 0) {
+        syncPayload.presenceUserIds = presenceUserIds.slice(0, 50);
+      }
+
+      const response = await api.chat.sync(syncPayload);
 
       const {
         conversations: updatedConvs,

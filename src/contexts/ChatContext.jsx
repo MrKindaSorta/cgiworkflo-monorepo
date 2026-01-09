@@ -71,6 +71,7 @@ export const ChatProvider = ({ children }) => {
   const conversationsRef = useRef(conversations);
   const messagesRef = useRef(messages);
   const activeConversationIdRef = useRef(activeConversationId);
+  const conversationListPollingRef = useRef(null); // For polling conversation list updates
 
   // ============================================================================
   // WEBSOCKET FUNCTIONS (Defined first, no dependencies)
@@ -475,27 +476,50 @@ export const ChatProvider = ({ children }) => {
     return typingUsers[conversationId] || [];
   }, [typingUsers]);
 
-  const loadConversations = useCallback(async () => {
+  const loadConversations = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       const response = await api.conversations.list();
       const convList = response.data.data || [];
-      console.log('[ChatContext] Loaded conversations:', convList);
+
+      if (!silent) {
+        console.log('[ChatContext] Loaded conversations:', convList);
+      }
+
       setConversations(convList);
 
-      // Load messages for each conversation (initial load)
-      for (const conv of convList) {
-        if (conv.lastMessageId) {
-          await loadMessages(conv.id);
+      // Load messages for each conversation (initial load only)
+      if (!silent) {
+        for (const conv of convList) {
+          if (conv.lastMessageId) {
+            await loadMessages(conv.id);
+          }
         }
       }
     } catch (error) {
       console.error('Failed to load conversations:', error);
-      toast.error('Failed to load conversations. Please refresh.');
+      if (!silent) {
+        toast.error('Failed to load conversations. Please refresh.');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [loadMessages]);
+
+  // Poll conversation list for updates (lightweight, only metadata)
+  const pollConversationList = useCallback(async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      await loadConversations(true); // Silent update
+    } catch (error) {
+      console.error('[ChatContext] Conversation list polling error:', error);
+    }
+  }, [isAuthenticated, loadConversations]);
 
   const loadOpenChat = useCallback(async () => {
     try {
@@ -635,10 +659,30 @@ export const ChatProvider = ({ children }) => {
     };
   }, [isAuthenticated, activeConversationId, connectWebSocket, disconnectWebSocket]);
 
+  // Poll conversation list for updates (catches messages in non-active conversations)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Start polling every 10 seconds
+    conversationListPollingRef.current = setInterval(() => {
+      pollConversationList();
+    }, 10000);
+
+    return () => {
+      if (conversationListPollingRef.current) {
+        clearInterval(conversationListPollingRef.current);
+        conversationListPollingRef.current = null;
+      }
+    };
+  }, [isAuthenticated, pollConversationList]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       disconnectWebSocket();
+      if (conversationListPollingRef.current) {
+        clearInterval(conversationListPollingRef.current);
+      }
     };
   }, [disconnectWebSocket]);
 

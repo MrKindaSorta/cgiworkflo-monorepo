@@ -428,7 +428,7 @@ export const ChatProvider = ({ children }) => {
   // CONVERSATION MANAGEMENT
   // ============================================================================
 
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.conversations.list();
@@ -457,9 +457,9 @@ export const ChatProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadMessages]); // Depends on loadMessages
 
-  const createConversation = async (type, participantIds, name = null) => {
+  const createConversation = useCallback(async (type, participantIds, name = null) => {
     try {
       const data = {
         type,
@@ -494,21 +494,21 @@ export const ChatProvider = ({ children }) => {
       toast.error('Failed to create conversation. Please try again.');
       throw error;
     }
-  };
+  }, [loadConversations]); // Depends on loadConversations
 
-  const loadOpenChat = async () => {
+  const loadOpenChat = useCallback(async () => {
     try {
       const response = await api.conversations.getOpen();
       const openChatId = response.data.data.id;
 
-      // Ensure open chat is in conversations list
-      if (!conversations.find((c) => c.id === openChatId)) {
+      // Use conversationsRef to avoid dependency on conversations state
+      if (!conversationsRef.current.find((c) => c.id === openChatId)) {
         await loadConversations();
       }
     } catch (error) {
       console.error('Failed to load open chat:', error);
     }
-  };
+  }, [loadConversations]); // Depends on loadConversations
 
   const getConversation = useCallback((conversationId) => {
     return conversations.find((c) => c.id === conversationId);
@@ -518,7 +518,7 @@ export const ChatProvider = ({ children }) => {
   // MESSAGE MANAGEMENT
   // ============================================================================
 
-  const loadMessages = async (conversationId, options = {}) => {
+  const loadMessages = useCallback(async (conversationId, options = {}) => {
     try {
       const response = await api.conversations.getMessages(conversationId, options);
       const msgs = response.data.data || [];
@@ -544,9 +544,9 @@ export const ChatProvider = ({ children }) => {
       toast.error('Failed to load messages. Please try again.');
       return [];
     }
-  };
+  }, []); // Empty deps - uses setState updaters only
 
-  const sendMessage = async (conversationId, content, messageType = 'text', metadata = null) => {
+  const sendMessage = useCallback(async (conversationId, content, messageType = 'text', metadata = null) => {
     try {
       setSending(true);
 
@@ -618,7 +618,7 @@ export const ChatProvider = ({ children }) => {
     } finally {
       setSending(false);
     }
-  };
+  }, [currentUser?.id, syncChat]); // Depends on currentUser and syncChat
 
   const markAsRead = useCallback(async (conversationId) => {
     try {

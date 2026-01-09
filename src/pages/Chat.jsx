@@ -114,6 +114,7 @@ const Chat = () => {
   const [uploading, setUploading] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
   const [loadingConversation, setLoadingConversation] = useState(false);
+  const [messageDisplayLimit, setMessageDisplayLimit] = useState(50); // Pagination: show last 50 messages
   const messagesEndRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const markAsReadTimeoutRef = useRef(null);
@@ -129,10 +130,21 @@ const Chat = () => {
 
   // CRITICAL: Only recalculate when THIS conversation's messages change
   // Memoized to prevent unnecessary re-renders when messages object reference changes
-  const conversationMessages = useMemo(
+  const allConversationMessages = useMemo(
     () => (activeConversationId ? messages[activeConversationId] || [] : []),
     [messages, activeConversationId]
   );
+
+  // Paginated messages: show only last N messages for performance
+  const conversationMessages = useMemo(() => {
+    const totalMessages = allConversationMessages.length;
+    if (totalMessages <= messageDisplayLimit) {
+      return allConversationMessages;
+    }
+    return allConversationMessages.slice(totalMessages - messageDisplayLimit);
+  }, [allConversationMessages, messageDisplayLimit]);
+
+  const hasMoreMessages = allConversationMessages.length > messageDisplayLimit;
 
   // Simple auto-scroll to bottom on new messages
   useEffect(() => {
@@ -178,6 +190,9 @@ const Chat = () => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
+
+    // Reset message display limit when switching conversations
+    setMessageDisplayLimit(50);
 
     // Cleanup: Clear ref on unmount to prevent stale references
     return () => {
@@ -916,6 +931,18 @@ const Chat = () => {
             </div>
           ) : (
             <>
+              {/* Load More Button */}
+              {hasMoreMessages && (
+                <div className="flex justify-center mb-4">
+                  <button
+                    onClick={() => setMessageDisplayLimit((prev) => prev + 50)}
+                    className="px-4 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+                  >
+                    Load older messages ({allConversationMessages.length - messageDisplayLimit} more)
+                  </button>
+                </div>
+              )}
+
               {conversationMessages.map((msg, idx) => (
                 <MessageBubble
                   key={msg.id}

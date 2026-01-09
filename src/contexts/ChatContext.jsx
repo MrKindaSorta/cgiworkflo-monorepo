@@ -23,9 +23,14 @@ const ChatContext = createContext(null);
 // WEBSOCKET CONFIGURATION
 // ============================================================================
 
+// Detect mobile browser
+const isMobile = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
 const WS_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/^https?:/, 'wss:').replace(/\/api$/, '') || 'wss://cgiworkflo-api.joshua-r-klimek.workers.dev';
-const WS_RECONNECT_DELAYS = [1000, 2000, 5000, 10000, 30000]; // Exponential backoff
-const WS_PING_INTERVAL = 30000; // 30 seconds
+const WS_RECONNECT_DELAYS = [1000, 2000, 5000, 10000, 30000, 60000]; // Exponential backoff (added 60s for mobile)
+const WS_PING_INTERVAL = isMobile() ? 15000 : 30000; // 15s on mobile, 30s desktop
 const WS_MAX_QUEUE_SIZE = 100; // Max queued messages when offline
 
 // ============================================================================
@@ -71,6 +76,7 @@ export const ChatProvider = ({ children }) => {
   const conversationsRef = useRef(conversations);
   const messagesRef = useRef(messages);
   const activeConversationIdRef = useRef(activeConversationId);
+  const sendWebSocketMessageRef = useRef(null); // Stable reference for WebSocket send
 
   // ============================================================================
   // WEBSOCKET FUNCTIONS (Defined first, no dependencies)
@@ -198,22 +204,29 @@ export const ChatProvider = ({ children }) => {
   }, []);
 
   /**
-   * Send message via WebSocket
+   * Send message via WebSocket (STABLE - uses ref pattern)
    */
   const sendWebSocketMessage = useCallback((message) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message));
-    } else {
-      // Queue message if offline
-      if (messageQueueRef.current.length < WS_MAX_QUEUE_SIZE) {
-        messageQueueRef.current.push(message);
-        console.log('[ChatContext] Message queued (offline)');
+    sendWebSocketMessageRef.current?.(message);
+  }, []); // TRULY stable - never changes
+
+  // Initialize sendWebSocketMessageRef.current ONCE
+  useEffect(() => {
+    sendWebSocketMessageRef.current = (message) => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(message));
       } else {
-        console.warn('[ChatContext] Message queue full, dropping message');
-        toast.error('Too many queued messages. Please try again.');
+        // Queue message if offline
+        if (messageQueueRef.current.length < WS_MAX_QUEUE_SIZE) {
+          messageQueueRef.current.push(message);
+          console.log('[ChatContext] Message queued (offline)');
+        } else {
+          console.warn('[ChatContext] Message queue full, dropping message');
+          toast.error('Too many queued messages. Please try again.');
+        }
       }
-    }
-  }, []);
+    };
+  }, []); // Only runs once
 
   /**
    * Handle incoming WebSocket messages
@@ -295,14 +308,21 @@ export const ChatProvider = ({ children }) => {
         return prev;
       });
 
-      // Update conversation's lastMessageAt
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === conversationId
-            ? { ...conv, lastMessageAt: payload.timestamp }
-            : conv
-        )
-      );
+      // Update conversation's lastMessageAt (only if changed)
+      setConversations((prev) => {
+        const index = prev.findIndex(c => c.id === conversationId);
+        if (index === -1) return prev;
+
+        const current = prev[index];
+        if (current.lastMessageAt === payload.timestamp) {
+          return prev; // No change, return same reference
+        }
+
+        // Only create new array when actually changing
+        const updated = [...prev];
+        updated[index] = { ...current, lastMessageAt: payload.timestamp };
+        return updated;
+      });
     });
   }, []);
 
@@ -615,12 +635,12 @@ export const ChatProvider = ({ children }) => {
   }, [currentUser?.id, currentUser?.name, sendWebSocketMessage]);
 
   const sendTypingIndicator = useCallback((conversationId, isTyping) => {
-    sendWebSocketMessage({
+    sendWebSocketMessageRef.current?.({  // Use ref directly - STABLE
       type: 'typing',
-      conversationId, // Include conversationId for global WebSocket
+      conversationId,
       payload: { isTyping },
     });
-  }, [sendWebSocketMessage]);
+  }, []); // Empty dependencies - stable forever
 
   // ============================================================================
   // USE EFFECTS
@@ -664,6 +684,78 @@ export const ChatProvider = ({ children }) => {
       disconnectWebSocket();
     };
   }, [isAuthenticated, currentUser, connectWebSocket, disconnectWebSocket]);
+
+  // Handle visibility changes (mobile tab suspension / desktop tab switching)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Page went to background
+        console.log('[ChatContext] Page hidden, pausing ping to save battery');
+
+        // Stop ping interval to save battery
+        if (wsPingIntervalRef.current) {
+          clearInterval(wsPingIntervalRef.current);
+          wsPingIntervalRef.current = null;
+        }
+      } else {
+        // Page came back to foreground
+        console.log('[ChatContext] Page visible, checking connection');
+
+        // Check if WebSocket is still alive
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          // Restart ping interval
+          wsPingIntervalRef.current = setInterval(() => {
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({ type: 'ping' }));
+            }
+          }, WS_PING_INTERVAL);
+
+          // Send immediate ping to test connection
+          wsRef.current.send(JSON.stringify({ type: 'ping' }));
+        } else {
+          // Connection dead, reconnect
+          console.log('[ChatContext] Connection lost during suspension, reconnecting');
+          connectWebSocket();
+        }
+
+        // Reload conversations to catch up on any missed updates
+        loadConversations();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isAuthenticated, connectWebSocket, loadConversations]);
+
+  // Handle network changes (WiFi ↔ Cellular switching on mobile)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleOnline = () => {
+      console.log('[ChatContext] Network online, reconnecting WebSocket');
+      setWsError(null);
+      connectWebSocket();
+    };
+
+    const handleOffline = () => {
+      console.log('[ChatContext] Network offline, disconnecting');
+      setWsError('No network connection');
+      disconnectWebSocket();
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [isAuthenticated, connectWebSocket, disconnectWebSocket]);
 
   // ============================================================================
   // CONTEXT VALUE (Memoized)

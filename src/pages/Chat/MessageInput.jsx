@@ -13,6 +13,7 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload, on
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const isTypingRef = useRef(false);
+  const inputRef = useRef(null); // For auto-focus after send
 
   // Debug: Track component renders
   useEffect(() => {
@@ -62,6 +63,11 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload, on
 
     onSendMessage(message.trim());
     setMessage('');
+
+    // CRITICAL: Refocus input immediately so user can keep typing
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
   };
 
   // Handle typing indicator
@@ -244,6 +250,7 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload, on
         {/* Message Input */}
         <div className="flex-1 relative">
           <input
+            ref={inputRef}
             type="text"
             value={message}
             onChange={handleInputChange}
@@ -251,6 +258,7 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload, on
             aria-label="Message input"
             aria-describedby={sending ? 'sending-status' : undefined}
             disabled={sending || uploading}
+            autoFocus
             className="w-full px-5 py-3.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:opacity-50"
           />
           {sending && <span id="sending-status" className="sr-only">Sending message</span>}

@@ -10,7 +10,7 @@
  * - Optimized state updates to prevent input field clearing
  */
 
-import { createContext, useContext, useState, useEffect, useRef, useCallback, startTransition } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo, startTransition } from 'react';
 import { useAuth } from './AuthContext';
 import { api } from '../lib/api-client';
 import toast from 'react-hot-toast';

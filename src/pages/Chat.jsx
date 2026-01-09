@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, memo, useCallback, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import DOMPurify from 'dompurify';
@@ -25,6 +25,7 @@ import {
   Clock,
   Check,
   XCircle,
+  AlertCircle,
 } from 'lucide-react';
 
 // Loading skeleton components
@@ -106,6 +107,8 @@ const Chat = () => {
     isUserOnline,
     loading,
     sending,
+    syncError,
+    retrySync,
   } = useChat();
 
   const [activeTab, setActiveTab] = useState('direct');
@@ -121,6 +124,12 @@ const Chat = () => {
   const uploadAbortControllerRef = useRef(null);
   const messageQueueRef = useRef([]);
   const processingQueueRef = useRef(false);
+
+  // NEW: Scroll behavior control refs
+  const shouldScrollRef = useRef(false); // Control when to auto-scroll
+  const previousScrollHeightRef = useRef(0); // For maintaining position during "load older"
+  const isUserScrollingRef = useRef(false); // Track if user is manually scrolling
+  const lastMessageCountRef = useRef(0); // Track message count changes
 
   // Stable refs for callback dependencies (prevent MessageInput remounting)
   const sendMessageRef = useRef(sendMessage);
@@ -172,12 +181,72 @@ const Chat = () => {
     };
   }, []);
 
-  // REMOVED: Auto-scroll on message length change
-  // This was causing unwanted scrolling during polling updates.
-  // Scroll now only happens on: conversation change, user sends message, keyboard opens
+  // ============================================================================
+  // SMART SCROLL LOGIC - FIXED
+  // ============================================================================
+
+  // Scroll to bottom utility function
+  const scrollToBottom = useCallback((behavior = 'auto') => {
+    if (!scrollContainerRef.current) return;
+
+    // Use requestAnimationFrame to ensure DOM is painted
+    requestAnimationFrame(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+      }
+    });
+  }, []);
+
+  // Check if user is at bottom of scroll container
+  const isAtBottom = useCallback(() => {
+    if (!scrollContainerRef.current) return false;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    // Within 100px of bottom
+    return scrollHeight - scrollTop - clientHeight < 100;
+  }, []);
+
+  // FIXED: Smart auto-scroll on messages change
+  // Only scroll when: 1) Conversation changes 2) New message arrives and user is at bottom 3) User sends message
+  useLayoutEffect(() => {
+    if (!scrollContainerRef.current || conversationMessages.length === 0) return;
+
+    const currentMessageCount = conversationMessages.length;
+    const previousMessageCount = lastMessageCountRef.current;
+
+    // Case 1: First load or conversation changed - scroll to bottom
+    if (shouldScrollRef.current) {
+      scrollToBottom('auto');
+      shouldScrollRef.current = false;
+      lastMessageCountRef.current = currentMessageCount;
+      return;
+    }
+
+    // Case 2: New messages arrived
+    if (currentMessageCount > previousMessageCount) {
+      const newMessagesCount = currentMessageCount - previousMessageCount;
+
+      // Check if last message is from current user (they just sent it)
+      const lastMessage = conversationMessages[conversationMessages.length - 1];
+      const isOwnMessage = lastMessage?.senderId === user?.id;
+
+      // Auto-scroll if: user sent message OR user is already at bottom
+      if (isOwnMessage || isAtBottom()) {
+        scrollToBottom('smooth');
+      }
+
+      lastMessageCountRef.current = currentMessageCount;
+    }
+  }, [conversationMessages, scrollToBottom, isAtBottom, user?.id]);
+
+  // Scroll to bottom when conversation changes (after DOM update)
+  useEffect(() => {
+    if (activeConversationId && conversationMessages.length > 0) {
+      shouldScrollRef.current = true; // Set flag to scroll on next layout effect
+      lastMessageCountRef.current = conversationMessages.length;
+    }
+  }, [activeConversationId, conversationMessages.length > 0]);
 
   // Handle mobile keyboard visibility changes (viewport resize)
-  // Only scroll if user is actively typing (input focused)
   useEffect(() => {
     let resizeTimeout;
 
@@ -185,24 +254,44 @@ const Chat = () => {
       // Debounce resize events
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
-        // Only auto-scroll if user is typing (input focused)
+        // Only auto-scroll if user is typing (input focused) AND near bottom
         const inputFocused = document.activeElement?.tagName === 'INPUT' ||
                             document.activeElement?.tagName === 'TEXTAREA';
 
-        if (inputFocused && messagesEndRef.current && scrollContainerRef.current) {
-          // Scroll to bottom when keyboard opens while typing
-          messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        if (inputFocused && isAtBottom()) {
+          scrollToBottom('auto');
         }
       }, 100);
     };
 
     // Only use visualViewport for mobile keyboard detection
-    // Don't use generic window resize (causes issues with polling/UI updates)
     window.visualViewport?.addEventListener('resize', handleResize);
 
     return () => {
       clearTimeout(resizeTimeout);
       window.visualViewport?.removeEventListener('resize', handleResize);
+    };
+  }, [scrollToBottom, isAtBottom]);
+
+  // Track user scrolling to prevent auto-scroll during manual scroll
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    let scrollTimeout;
+    const handleScroll = () => {
+      isUserScrollingRef.current = true;
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        isUserScrollingRef.current = false;
+      }, 150);
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
     };
   }, []);
 
@@ -210,18 +299,6 @@ const Chat = () => {
   useEffect(() => {
     setMessageDisplayLimit(50);
   }, [activeConversationId]);
-
-  // Scroll to bottom when conversation changes (after messages render)
-  useEffect(() => {
-    if (scrollContainerRef.current && conversationMessages.length > 0) {
-      // Use requestAnimationFrame to ensure DOM is fully painted
-      requestAnimationFrame(() => {
-        if (scrollContainerRef.current) {
-          scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
-        }
-      });
-    }
-  }, [activeConversationId, conversationMessages.length > 0]);
 
   // Debounced markAsRead when conversation changes
   useEffect(() => {
@@ -258,6 +335,10 @@ const Chat = () => {
       }
     };
   }, [activeConversationId, markAsRead]);
+
+  // ============================================================================
+  // HELPER FUNCTIONS
+  // ============================================================================
 
   // Memoized getOtherParticipant with proper dependencies
   const getOtherParticipant = useCallback((conversation) => {
@@ -306,6 +387,10 @@ const Chat = () => {
       });
   }, [conversations, activeTab, searchQuery, getConversationName]);
 
+  // ============================================================================
+  // MESSAGE HANDLING
+  // ============================================================================
+
   // Process message queue to prevent rapid duplicates
   // STABLE: Uses refs to prevent MessageInput remounting
   const processMessageQueue = useCallback(async () => {
@@ -321,7 +406,7 @@ const Chat = () => {
         messageQueueRef.current.shift(); // Remove successfully sent message
       } catch (error) {
         console.error('Failed to send message:', error);
-        toast.error('Failed to send message. Please try again.');
+        // Error toast already shown in ChatContext
         messageQueueRef.current.shift(); // Remove failed message from queue
       }
     }
@@ -342,12 +427,8 @@ const Chat = () => {
     // Process queue
     processMessageQueue();
 
-    // Scroll to bottom after sending message (let optimistic update render first)
-    setTimeout(() => {
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
-      }
-    }, 100);
+    // Mark that we should scroll (user sent message)
+    shouldScrollRef.current = true;
   }, [processMessageQueue]); // Only depends on processMessageQueue (which is now stable)
 
   // Retry failed message - STABLE
@@ -363,6 +444,10 @@ const Chat = () => {
     // Process queue
     processMessageQueue();
   }, [processMessageQueue]);
+
+  // ============================================================================
+  // FILE UPLOAD
+  // ============================================================================
 
   const handleFileUpload = useCallback(async (files, type = 'file') => {
     if (!files || files.length === 0 || !activeConversationIdRef.current || uploading) return; // Use ref
@@ -412,6 +497,9 @@ const Chat = () => {
       } else {
         toast.success(`${fileCount} files uploaded successfully!`);
       }
+
+      // Mark that we should scroll (user uploaded file)
+      shouldScrollRef.current = true;
     } catch (error) {
       if (error.message === 'Upload cancelled') {
         toast.info('File upload cancelled');
@@ -436,6 +524,37 @@ const Chat = () => {
       }
     };
   }, [activeConversationId]);
+
+  // ============================================================================
+  // PAGINATION - IMPROVED with scroll position maintenance
+  // ============================================================================
+
+  const handleLoadOlderMessages = useCallback(() => {
+    if (!scrollContainerRef.current) return;
+
+    // Capture current scroll position BEFORE loading more messages
+    const scrollContainer = scrollContainerRef.current;
+    const previousScrollHeight = scrollContainer.scrollHeight;
+    const previousScrollTop = scrollContainer.scrollTop;
+
+    // Load more messages
+    setMessageDisplayLimit((prev) => prev + 50);
+
+    // After messages render, restore scroll position
+    requestAnimationFrame(() => {
+      if (scrollContainerRef.current) {
+        const newScrollHeight = scrollContainerRef.current.scrollHeight;
+        const scrollHeightDifference = newScrollHeight - previousScrollHeight;
+
+        // Maintain scroll position by adjusting for new content
+        scrollContainerRef.current.scrollTop = previousScrollTop + scrollHeightDifference;
+      }
+    });
+  }, []);
+
+  // ============================================================================
+  // MEMOIZED COMPONENTS
+  // ============================================================================
 
   // Memoize last messages map to avoid repeated getMessages calls
   const lastMessagesMap = useMemo(() => {
@@ -742,6 +861,7 @@ const Chat = () => {
             <button
               onClick={() => setShowNewChatModal(false)}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              aria-label="Close modal"
             >
               <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
@@ -763,7 +883,7 @@ const Chat = () => {
                       setShowNewChatModal(false);
                     } catch (error) {
                       console.error('Failed to create conversation:', error);
-                      toast.error('Failed to create conversation. Please try again.');
+                      // Error toast already shown in ChatContext
                     }
                   }}
                   className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
@@ -896,6 +1016,7 @@ const Chat = () => {
             <button
               onClick={() => setActiveConversationId(null)}
               className="md:hidden p-2 -ml-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              aria-label="Back to conversations"
             >
               <ArrowLeft className="w-5 h-5 text-gray-700 dark:text-gray-300" />
             </button>
@@ -927,7 +1048,20 @@ const Chat = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-2">
-            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+            {syncError && (
+              <button
+                onClick={retrySync}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
+                aria-label="Retry connection"
+              >
+                <AlertCircle className="w-4 h-4" />
+                Retry
+              </button>
+            )}
+            <button
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              aria-label="More options"
+            >
               <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
           </div>
@@ -941,6 +1075,9 @@ const Chat = () => {
             contain: 'layout style paint',
             willChange: 'scroll-position',
           }}
+          role="log"
+          aria-live="polite"
+          aria-label="Messages"
         >
           {loadingConversation ? (
             <div className="space-y-4">
@@ -963,8 +1100,9 @@ const Chat = () => {
               {hasMoreMessages && (
                 <div className="flex justify-center mb-4">
                   <button
-                    onClick={() => setMessageDisplayLimit((prev) => prev + 50)}
+                    onClick={handleLoadOlderMessages}
                     className="px-4 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+                    aria-label={`Load ${allConversationMessages.length - messageDisplayLimit} older messages`}
                   >
                     Load older messages ({allConversationMessages.length - messageDisplayLimit} more)
                   </button>
@@ -980,7 +1118,7 @@ const Chat = () => {
                   onRetry={handleRetryMessage}
                 />
               ))}
-              <div ref={messagesEndRef} />
+              <div ref={messagesEndRef} aria-hidden="true" />
             </>
           )}
         </div>
@@ -1014,10 +1152,27 @@ const Chat = () => {
             <button
               onClick={() => setShowNewChatModal(true)}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              aria-label="New conversation"
             >
               <Plus className="w-6 h-6 text-gray-600 dark:text-gray-300" />
             </button>
           </div>
+
+          {/* Sync Error Banner */}
+          {syncError && (
+            <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+              <p className="text-sm text-orange-700 dark:text-orange-300 flex-1">
+                {syncError}
+              </p>
+              <button
+                onClick={retrySync}
+                className="text-sm font-medium text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300"
+              >
+                Retry
+              </button>
+            </div>
+          )}
 
           {/* Search */}
           <div className="relative mb-4">
@@ -1027,6 +1182,7 @@ const Chat = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search conversations..."
+              aria-label="Search conversations"
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
             />
           </div>
@@ -1043,6 +1199,7 @@ const Chat = () => {
                   ? 'bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 shadow-md'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
+              aria-pressed={activeTab === 'direct'}
             >
               {t('chat.directMessages')}
             </button>
@@ -1056,6 +1213,7 @@ const Chat = () => {
                   ? 'bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 shadow-md'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
+              aria-pressed={activeTab === 'groups'}
             >
               {t('chat.groups')}
             </button>
@@ -1069,6 +1227,7 @@ const Chat = () => {
                   ? 'bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 shadow-md'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
+              aria-pressed={activeTab === 'open'}
             >
               {t('chat.openChat')}
             </button>
@@ -1076,7 +1235,7 @@ const Chat = () => {
         </div>
 
         {/* Conversation List */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto" role="list" aria-label="Conversations">
           {loading ? (
             <>
               <ConversationSkeleton />

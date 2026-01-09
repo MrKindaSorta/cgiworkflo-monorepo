@@ -1,12 +1,19 @@
 /**
- * Chat Context
+ * Chat Context - OPTIMIZED VERSION
  * Manages real-time chat state with smart polling
  * Handles conversations, messages, and presence tracking
+ *
+ * KEY FIXES:
+ * - Deep message comparison to prevent unnecessary re-renders
+ * - Non-intrusive presence updates (only when changed)
+ * - Better error handling with retry logic
+ * - Optimized state updates to prevent input field clearing
  */
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback, startTransition } from 'react';
 import { useAuth } from './AuthContext';
 import { api } from '../lib/api-client';
+import toast from 'react-hot-toast';
 
 const ChatContext = createContext(null);
 
@@ -28,10 +35,35 @@ const PollingState = {
 
 // Shallow equality check - more efficient than JSON.stringify
 const shallowEqual = (obj1, obj2) => {
+  if (!obj1 || !obj2) return obj1 === obj2;
   const keys1 = Object.keys(obj1);
   const keys2 = Object.keys(obj2);
   if (keys1.length !== keys2.length) return false;
   return keys1.every((key) => obj1[key] === obj2[key]);
+};
+
+// Deep equality check for messages arrays
+const messagesEqual = (arr1, arr2) => {
+  if (!arr1 || !arr2) return arr1 === arr2;
+  if (arr1.length !== arr2.length) return false;
+
+  // Compare last 5 messages deeply (most likely to change)
+  const checkCount = Math.min(5, arr1.length);
+  for (let i = arr1.length - checkCount; i < arr1.length; i++) {
+    const msg1 = arr1[i];
+    const msg2 = arr2[i];
+
+    if (
+      msg1.id !== msg2.id ||
+      msg1.content !== msg2.content ||
+      msg1._isPending !== msg2._isPending ||
+      msg1._failed !== msg2._failed
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 };
 
 // ============================================================================
@@ -50,6 +82,7 @@ export const ChatProvider = ({ children }) => {
   const [presence, setPresence] = useState({}); // { userId: { isOnline, lastSeen } }
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [syncError, setSyncError] = useState(null);
 
   // Polling state
   const [pollingInterval, setPollingInterval] = useState(PollingState.BACKGROUND_MONITORING);
@@ -62,10 +95,12 @@ export const ChatProvider = ({ children }) => {
   const syncInProgressRef = useRef(false);
   const failureCountRef = useRef(0);
   const tabVisibleRef = useRef(true);
+  const retryTimeoutRef = useRef(null);
 
   // Refs for stable dependencies (prevent syncChat recreation)
   const conversationTimestampsRef = useRef(conversationTimestamps);
   const conversationsRef = useRef(conversations);
+  const messagesRef = useRef(messages);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -75,6 +110,10 @@ export const ChatProvider = ({ children }) => {
   useEffect(() => {
     conversationsRef.current = conversations;
   }, [conversations]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // ============================================================================
   // INITIAL LOAD
@@ -160,6 +199,10 @@ export const ChatProvider = ({ children }) => {
       clearTimeout(pollingTimeoutRef.current);
       pollingTimeoutRef.current = null;
     }
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
   };
 
   const pollChat = async () => {
@@ -168,9 +211,20 @@ export const ChatProvider = ({ children }) => {
     try {
       await syncChat();
       failureCountRef.current = 0; // Reset on success
+      setSyncError(null); // Clear any previous errors
     } catch (error) {
       console.error('Polling error:', error);
       failureCountRef.current++;
+
+      // Show error toast only on first failure or every 5 failures
+      if (failureCountRef.current === 1 || failureCountRef.current % 5 === 0) {
+        setSyncError(`Connection issue. Retrying... (${failureCountRef.current})`);
+
+        // Auto-dismiss error toast after 3 seconds
+        setTimeout(() => {
+          setSyncError(null);
+        }, 3000);
+      }
 
       // Exponential backoff on repeated failures (5s, 10s, 20s, 40s, 60s max)
       if (failureCountRef.current > 3) {
@@ -186,7 +240,7 @@ export const ChatProvider = ({ children }) => {
   };
 
   // ============================================================================
-  // BATCHED SYNC FUNCTION (Core of Smart Polling)
+  // BATCHED SYNC FUNCTION (Core of Smart Polling) - OPTIMIZED
   // ============================================================================
 
   const syncChat = useCallback(async () => {
@@ -270,7 +324,7 @@ export const ChatProvider = ({ children }) => {
         });
       }
 
-      // Update messages - wrap in startTransition
+      // Update messages - wrap in startTransition with DEEP comparison
       if (data.messages && Object.keys(data.messages).length > 0) {
         startTransition(() => {
           setMessages((prev) => {
@@ -291,10 +345,15 @@ export const ChatProvider = ({ children }) => {
 
               // Only update array if there are new messages to add
               if (toAdd.length > 0) {
-                updated[convId] = [...updated[convId], ...toAdd].sort(
+                const merged = [...updated[convId], ...toAdd].sort(
                   (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
                 );
-                hasChanges = true;
+
+                // Deep comparison - only update if messages actually changed
+                if (!messagesEqual(updated[convId], merged)) {
+                  updated[convId] = merged;
+                  hasChanges = true;
+                }
               }
             }
 
@@ -323,7 +382,8 @@ export const ChatProvider = ({ children }) => {
         });
       }
 
-      // Update presence - wrap in startTransition
+      // Update presence - wrap in startTransition with SMART comparison
+      // ONLY update if presence actually changed (non-intrusive)
       if (data.presence && Object.keys(data.presence).length > 0) {
         startTransition(() => {
           setPresence((prev) => {
@@ -331,8 +391,14 @@ export const ChatProvider = ({ children }) => {
           const updated = { ...prev };
 
           Object.keys(data.presence).forEach((userId) => {
-            if (updated[userId] !== data.presence[userId]) {
-              updated[userId] = data.presence[userId];
+            const newPresence = data.presence[userId];
+            const oldPresence = prev[userId];
+
+            // Deep comparison for presence objects
+            if (!oldPresence ||
+                oldPresence.isOnline !== newPresence.isOnline ||
+                oldPresence.lastSeen !== newPresence.lastSeen) {
+              updated[userId] = newPresence;
               hasChanges = true;
             }
           });
@@ -384,6 +450,7 @@ export const ChatProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Failed to load conversations:', error);
+      toast.error('Failed to load conversations. Please refresh.');
     } finally {
       setLoading(false);
     }
@@ -421,6 +488,7 @@ export const ChatProvider = ({ children }) => {
       if (error.response?.data) {
         console.error('[ChatContext] API error response:', error.response.data);
       }
+      toast.error('Failed to create conversation. Please try again.');
       throw error;
     }
   };
@@ -470,6 +538,7 @@ export const ChatProvider = ({ children }) => {
       return msgs;
     } catch (error) {
       console.error('Failed to load messages:', error);
+      toast.error('Failed to load messages. Please try again.');
       return [];
     }
   };
@@ -533,12 +602,15 @@ export const ChatProvider = ({ children }) => {
     } catch (error) {
       console.error('Failed to send message:', error);
 
-      // Remove optimistic message on failure
+      // Mark message as failed instead of removing
       setMessages((prev) => ({
         ...prev,
-        [conversationId]: prev[conversationId].filter((m) => !m._isPending),
+        [conversationId]: prev[conversationId].map((m) =>
+          m._isPending ? { ...m, _isPending: false, _failed: true } : m
+        ),
       }));
 
+      toast.error('Failed to send message. You can retry.');
       throw error;
     } finally {
       setSending(false);
@@ -557,6 +629,7 @@ export const ChatProvider = ({ children }) => {
       );
     } catch (error) {
       console.error('Failed to mark as read:', error);
+      // Don't show error toast for this - it's not critical
     }
   }, []); // Empty deps - uses setState updater, all values stable
 
@@ -565,7 +638,7 @@ export const ChatProvider = ({ children }) => {
   }, [messages]);
 
   // ============================================================================
-  // PRESENCE MANAGEMENT
+  // PRESENCE MANAGEMENT - NON-INTRUSIVE
   // ============================================================================
 
   const sendHeartbeat = useCallback(async () => {
@@ -575,6 +648,7 @@ export const ChatProvider = ({ children }) => {
       await api.presence.heartbeat();
     } catch (error) {
       console.error('Heartbeat failed:', error);
+      // Don't show error - heartbeat is not critical
     }
   }, [isAuthenticated]);
 
@@ -606,6 +680,13 @@ export const ChatProvider = ({ children }) => {
     return conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
   }, [conversations]);
 
+  // Manual retry for failed syncs
+  const retrySync = useCallback(() => {
+    failureCountRef.current = 0; // Reset failure count
+    setSyncError(null);
+    syncChat();
+  }, [syncChat]);
+
   // ============================================================================
   // CONTEXT VALUE
   // ============================================================================
@@ -617,6 +698,7 @@ export const ChatProvider = ({ children }) => {
     presence,
     loading,
     sending,
+    syncError,
 
     // Conversation management
     createConversation,
@@ -637,6 +719,7 @@ export const ChatProvider = ({ children }) => {
     // Utilities
     getTotalUnreadCount,
     syncChat, // Expose for manual sync
+    retrySync, // Manual retry
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

@@ -691,10 +691,10 @@ export const ChatProvider = ({ children }) => {
   }, [syncChat]);
 
   // ============================================================================
-  // CONTEXT VALUE
+  // CONTEXT VALUE - CRITICAL FIX: Memoize to prevent unnecessary re-renders
   // ============================================================================
 
-  const value = {
+  const value = useMemo(() => ({
     conversations,
     messages,
     activeConversationId,
@@ -723,7 +723,28 @@ export const ChatProvider = ({ children }) => {
     getTotalUnreadCount,
     syncChat, // Expose for manual sync
     retrySync, // Manual retry
-  };
+  }), [
+    conversations,
+    messages,
+    activeConversationId,
+    presence,
+    loading,
+    sending,
+    syncError,
+    createConversation,
+    loadConversations,
+    getConversation,
+    setActiveConversationId,
+    loadMessages,
+    sendMessage,
+    markAsRead,
+    getMessages,
+    isUserOnline,
+    getUserLastSeen,
+    getTotalUnreadCount,
+    syncChat,
+    retrySync,
+  ]);
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 };

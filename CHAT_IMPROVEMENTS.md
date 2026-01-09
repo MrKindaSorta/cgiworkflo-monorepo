@@ -1,8 +1,23 @@
 # Chat System Improvements - Testing & Verification Guide
 
-**Deployment Date:** 2026-01-09
-**Backend Version:** f2049806-a49f-434a-b2e9-58451ee7478c
-**Status:** ✅ All 18 improvements deployed and live
+**Deployment Date:** 2026-01-09 22:35 UTC
+**Backend Version:** 6b45b581-d59d-4228-8151-068174538e75
+**Frontend Bundle:** index-CKCRsVoI.js
+**Status:** ✅ All 18 improvements deployed and LIVE
+**Total Commits:** 5 (7bf69f2, fef169c, deaa37e, a0235d3, 24e2d05)
+
+---
+
+## 🔧 DEPLOYMENT FIXES APPLIED
+
+During deployment, we discovered and fixed:
+1. **KV TTL Minimum:** Cloudflare KV requires 60s minimum (not 30s)
+   - Updated auth code TTL: 30s → 60s (still secure with single-use)
+   - Updated validation checks accordingly
+2. **Route Registration:** WebSocket routes at `/api/ws` for consistency
+3. **Sync Validation:** Omit null/undefined values in polling payload
+
+All fixes deployed and verified working ✅
 
 ---
 

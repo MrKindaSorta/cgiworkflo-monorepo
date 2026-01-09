@@ -206,27 +206,38 @@ export const ChatProvider = ({ children }) => {
       // Update conversations
       if (data.conversations && data.conversations.length > 0) {
         setConversations((prev) => {
+          let hasChanges = false;
           const updated = [...prev];
 
           data.conversations.forEach((newConv) => {
             const index = updated.findIndex((c) => c.id === newConv.id);
             if (index >= 0) {
-              updated[index] = { ...updated[index], ...newConv };
+              // Check if conversation actually changed
+              const existing = updated[index];
+              const isChanged = JSON.stringify(existing) !== JSON.stringify(newConv);
+              if (isChanged) {
+                updated[index] = { ...existing, ...newConv };
+                hasChanges = true;
+              }
             } else {
               updated.push(newConv);
+              hasChanges = true;
             }
           });
 
-          // Sort by last message time
-          updated.sort((a, b) => {
-            const aTime = a.lastMessageAt || a.createdAt;
-            const bTime = b.lastMessageAt || b.createdAt;
-            if (!aTime) return 1;
-            if (!bTime) return -1;
-            return new Date(bTime) - new Date(aTime);
-          });
+          // Only sort if changes were made
+          if (hasChanges) {
+            updated.sort((a, b) => {
+              const aTime = a.lastMessageAt || a.createdAt;
+              const bTime = b.lastMessageAt || b.createdAt;
+              if (!aTime) return 1;
+              if (!bTime) return -1;
+              return new Date(bTime) - new Date(aTime);
+            });
+          }
 
-          return updated;
+          // CRITICAL: Return same reference if nothing changed
+          return hasChanges ? updated : prev;
         });
       }
 
@@ -284,14 +295,26 @@ export const ChatProvider = ({ children }) => {
 
       // Update presence
       if (data.presence && Object.keys(data.presence).length > 0) {
-        setPresence((prev) => ({
-          ...prev,
-          ...data.presence,
-        }));
+        setPresence((prev) => {
+          let hasChanges = false;
+          const updated = { ...prev };
+
+          Object.keys(data.presence).forEach((userId) => {
+            if (updated[userId] !== data.presence[userId]) {
+              updated[userId] = data.presence[userId];
+              hasChanges = true;
+            }
+          });
+
+          // CRITICAL: Only return new object if something changed
+          return hasChanges ? updated : prev;
+        });
       }
 
-      // Update sync timestamp
-      setLastSyncTimestamp(data.syncTimestamp);
+      // Update sync timestamp only if it actually changed
+      if (data.syncTimestamp && data.syncTimestamp !== lastSyncTimestamp) {
+        setLastSyncTimestamp(data.syncTimestamp);
+      }
     } catch (error) {
       console.error('Sync failed:', error);
       throw error;

@@ -664,7 +664,7 @@ const Chat = () => {
       : null;
 
   const conversationViewContent = selectedConversation ? (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+    <div className="flex flex-col flex-1 bg-white dark:bg-gray-900">
         {/* Header */}
         <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
           <div className="flex items-center gap-3 flex-1 min-w-0">

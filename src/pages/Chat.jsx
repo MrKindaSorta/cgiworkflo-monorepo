@@ -209,31 +209,29 @@ const Chat = () => {
       clearTimeout(markAsReadTimeoutRef.current);
     }
 
+    let loadingTimeout; // Declare in outer scope for cleanup
+
     // Show loading state when switching conversations
     if (activeConversationId) {
       setLoadingConversation(true);
 
       // Simulate loading messages (in real scenario, this would wait for getMessages)
-      const loadingTimeout = setTimeout(() => {
+      loadingTimeout = setTimeout(() => {
         setLoadingConversation(false);
       }, 150); // Short delay for loading indicator
 
       markAsReadTimeoutRef.current = setTimeout(() => {
         markAsRead(activeConversationId);
       }, 300); // 300ms debounce
-
-      return () => {
-        clearTimeout(loadingTimeout);
-        if (markAsReadTimeoutRef.current) {
-          clearTimeout(markAsReadTimeoutRef.current);
-        }
-      };
     } else {
       setLoadingConversation(false);
     }
 
-    // Cleanup on unmount or conversation change
+    // SINGLE cleanup function that handles both timeouts
     return () => {
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+      }
       if (markAsReadTimeoutRef.current) {
         clearTimeout(markAsReadTimeoutRef.current);
       }
@@ -270,7 +268,7 @@ const Chat = () => {
       return otherUser?.name || 'Unknown User';
     }
     return 'Unknown';
-  }, [users, user.id, getOtherParticipant]);
+  }, [users, user.id]); // Removed getOtherParticipant to break circular dependency
 
   const filteredConversations = useMemo(() => {
     return conversations

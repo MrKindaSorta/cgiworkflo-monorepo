@@ -126,7 +126,7 @@ export const ChatProvider = ({ children }) => {
 
     loadConversations();
     loadOpenChat();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loadConversations, loadOpenChat]);
 
   // ============================================================================
   // POLLING SETUP
@@ -425,7 +425,43 @@ export const ChatProvider = ({ children }) => {
   }, [isAuthenticated, lastSyncTimestamp, activeConversationId, currentUser?.id]);
 
   // ============================================================================
-  // CONVERSATION MANAGEMENT
+  // MESSAGE MANAGEMENT (Defined FIRST - no function dependencies)
+  // ============================================================================
+
+  const loadMessages = useCallback(async (conversationId, options = {}) => {
+    try {
+      const response = await api.conversations.getMessages(conversationId, options);
+      const msgs = response.data.data || [];
+      console.log(`[ChatContext] Loaded ${msgs.length} messages for conversation ${conversationId}:`, msgs);
+
+      setMessages((prev) => ({
+        ...prev,
+        [conversationId]: msgs,
+      }));
+
+      // Update timestamp for differential queries
+      if (msgs.length > 0) {
+        const lastMsg = msgs[msgs.length - 1];
+        setConversationTimestamps((prev) => ({
+          ...prev,
+          [conversationId]: lastMsg.timestamp,
+        }));
+      }
+
+      return msgs;
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      toast.error('Failed to load messages. Please try again.');
+      return [];
+    }
+  }, []); // Empty deps - uses setState updaters only
+
+  const getMessages = useCallback((conversationId) => {
+    return messages[conversationId] || [];
+  }, [messages]);
+
+  // ============================================================================
+  // CONVERSATION MANAGEMENT (Depends on loadMessages)
   // ============================================================================
 
   const loadConversations = useCallback(async () => {
@@ -513,38 +549,6 @@ export const ChatProvider = ({ children }) => {
   const getConversation = useCallback((conversationId) => {
     return conversations.find((c) => c.id === conversationId);
   }, [conversations]);
-
-  // ============================================================================
-  // MESSAGE MANAGEMENT
-  // ============================================================================
-
-  const loadMessages = useCallback(async (conversationId, options = {}) => {
-    try {
-      const response = await api.conversations.getMessages(conversationId, options);
-      const msgs = response.data.data || [];
-      console.log(`[ChatContext] Loaded ${msgs.length} messages for conversation ${conversationId}:`, msgs);
-
-      setMessages((prev) => ({
-        ...prev,
-        [conversationId]: msgs,
-      }));
-
-      // Update timestamp for differential queries
-      if (msgs.length > 0) {
-        const lastMsg = msgs[msgs.length - 1];
-        setConversationTimestamps((prev) => ({
-          ...prev,
-          [conversationId]: lastMsg.timestamp,
-        }));
-      }
-
-      return msgs;
-    } catch (error) {
-      console.error('Failed to load messages:', error);
-      toast.error('Failed to load messages. Please try again.');
-      return [];
-    }
-  }, []); // Empty deps - uses setState updaters only
 
   const sendMessage = useCallback(async (conversationId, content, messageType = 'text', metadata = null) => {
     try {
@@ -635,10 +639,6 @@ export const ChatProvider = ({ children }) => {
       // Don't show error toast for this - it's not critical
     }
   }, []); // Empty deps - uses setState updater, all values stable
-
-  const getMessages = useCallback((conversationId) => {
-    return messages[conversationId] || [];
-  }, [messages]);
 
   // ============================================================================
   // PRESENCE MANAGEMENT - NON-INTRUSIVE

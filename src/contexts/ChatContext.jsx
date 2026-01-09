@@ -53,7 +53,6 @@ export const ChatProvider = ({ children }) => {
 
   // Polling state
   const [pollingInterval, setPollingInterval] = useState(PollingState.BACKGROUND_MONITORING);
-  const [lastSyncTimestamp, setLastSyncTimestamp] = useState(null);
   const [conversationTimestamps, setConversationTimestamps] = useState({});
 
   // Refs for polling control
@@ -62,6 +61,7 @@ export const ChatProvider = ({ children }) => {
   const syncInProgressRef = useRef(false);
   const failureCountRef = useRef(0);
   const tabVisibleRef = useRef(true);
+  const lastSyncTimestampRef = useRef(null);
 
   // Refs for stable dependencies (prevent syncChat recreation)
   const conversationTimestampsRef = useRef(conversationTimestamps);
@@ -103,22 +103,32 @@ export const ChatProvider = ({ children }) => {
   }, [isAuthenticated, pollingInterval]);
 
   // ============================================================================
-  // TAB VISIBILITY DETECTION (Battery Optimization)
+  // POLLING INTERVAL MANAGEMENT (Tab Visibility + Activity)
   // ============================================================================
   useEffect(() => {
+    // Determine interval based on visibility and activity
+    const updatePollingInterval = () => {
+      if (!tabVisibleRef.current) {
+        setPollingInterval(PollingState.HIDDEN);
+      } else if (activeConversationId) {
+        setPollingInterval(PollingState.ACTIVE_CONVERSATION);
+      } else {
+        setPollingInterval(PollingState.BACKGROUND_MONITORING);
+      }
+    };
+
+    // Initial update
+    updatePollingInterval();
+
+    // Handle visibility changes
     const handleVisibilityChange = () => {
+      const wasHidden = !tabVisibleRef.current;
       tabVisibleRef.current = !document.hidden;
 
-      if (document.hidden) {
-        setPollingInterval(PollingState.HIDDEN); // Slow down when hidden
-      } else {
-        // Resume active polling when tab becomes visible
-        if (activeConversationId) {
-          setPollingInterval(PollingState.ACTIVE_CONVERSATION);
-        } else {
-          setPollingInterval(PollingState.BACKGROUND_MONITORING);
-        }
-        // Immediate sync on tab focus
+      updatePollingInterval();
+
+      // Immediate sync when tab becomes visible
+      if (wasHidden && !document.hidden) {
         syncChat();
       }
     };
@@ -128,21 +138,7 @@ export const ChatProvider = ({ children }) => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [activeConversationId]);
-
-  // ============================================================================
-  // ADAPTIVE POLLING INTERVAL (Based on Activity)
-  // ============================================================================
-  useEffect(() => {
-    // Don't change interval if tab is hidden
-    if (!tabVisibleRef.current) return;
-
-    if (activeConversationId) {
-      setPollingInterval(PollingState.ACTIVE_CONVERSATION); // Fast polling
-    } else {
-      setPollingInterval(PollingState.BACKGROUND_MONITORING); // Slower polling
-    }
-  }, [activeConversationId]);
+  }, [activeConversationId, syncChat]);
 
   // ============================================================================
   // POLLING FUNCTIONS
@@ -207,8 +203,8 @@ export const ChatProvider = ({ children }) => {
       // Call batched sync endpoint
       const syncData = {};
 
-      if (lastSyncTimestamp) {
-        syncData.lastSync = lastSyncTimestamp;
+      if (lastSyncTimestampRef.current) {
+        syncData.lastSync = lastSyncTimestampRef.current;
       }
 
       if (activeConversationId) {
@@ -305,15 +301,13 @@ export const ChatProvider = ({ children }) => {
             }
           });
 
-          // Batch timestamp update AFTER messages using queueMicrotask
+          // Update timestamps synchronously - React 18 auto-batching handles this
           if (Object.keys(timestampUpdates).length > 0) {
-            queueMicrotask(() => {
-              setConversationTimestamps((prev) => {
-                const needsUpdate = Object.keys(timestampUpdates).some(
-                  (key) => prev[key] !== timestampUpdates[key]
-                );
-                return needsUpdate ? { ...prev, ...timestampUpdates } : prev;
-              });
+            setConversationTimestamps((prev) => {
+              const needsUpdate = Object.keys(timestampUpdates).some(
+                (key) => prev[key] !== timestampUpdates[key]
+              );
+              return needsUpdate ? { ...prev, ...timestampUpdates } : prev;
             });
           }
 
@@ -343,9 +337,9 @@ export const ChatProvider = ({ children }) => {
         });
       }
 
-      // Update sync timestamp only if it actually changed
-      if (data.syncTimestamp && data.syncTimestamp !== lastSyncTimestamp) {
-        setLastSyncTimestamp(data.syncTimestamp);
+      // Update sync timestamp (use ref to avoid recreating syncChat)
+      if (data.syncTimestamp) {
+        lastSyncTimestampRef.current = data.syncTimestamp;
       }
     } catch (error) {
       console.error('Sync failed:', error);
@@ -353,7 +347,7 @@ export const ChatProvider = ({ children }) => {
     } finally {
       syncInProgressRef.current = false;
     }
-  }, [isAuthenticated, lastSyncTimestamp, activeConversationId, currentUser?.id]);
+  }, [isAuthenticated, activeConversationId, currentUser?.id]);
 
   // ============================================================================
   // CONVERSATION MANAGEMENT
@@ -374,7 +368,7 @@ export const ChatProvider = ({ children }) => {
       });
       setConversationTimestamps(timestamps);
 
-      setLastSyncTimestamp(new Date().toISOString());
+      lastSyncTimestampRef.current = new Date().toISOString();
 
       // Auto-load messages for all conversations with data
       for (const conv of convList) {
@@ -389,7 +383,7 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  const createConversation = async (type, participantIds, name = null) => {
+  const createConversation = useCallback(async (type, participantIds, name = null) => {
     try {
       const data = {
         type,
@@ -423,7 +417,7 @@ export const ChatProvider = ({ children }) => {
       }
       throw error;
     }
-  };
+  }, []);
 
   const loadOpenChat = async () => {
     try {
@@ -447,7 +441,7 @@ export const ChatProvider = ({ children }) => {
   // MESSAGE MANAGEMENT
   // ============================================================================
 
-  const loadMessages = async (conversationId, options = {}) => {
+  const loadMessages = useCallback(async (conversationId, options = {}) => {
     try {
       const response = await api.conversations.getMessages(conversationId, options);
       const msgs = response.data.data || [];
@@ -472,9 +466,9 @@ export const ChatProvider = ({ children }) => {
       console.error('Failed to load messages:', error);
       return [];
     }
-  };
+  }, []);
 
-  const sendMessage = async (conversationId, content, messageType = 'text', metadata = null) => {
+  const sendMessage = useCallback(async (conversationId, content, messageType = 'text', metadata = null) => {
     try {
       setSending(true);
 
@@ -543,9 +537,9 @@ export const ChatProvider = ({ children }) => {
     } finally {
       setSending(false);
     }
-  };
+  }, [currentUser?.id, currentUser?.name, syncChat]);
 
-  const markAsRead = async (conversationId) => {
+  const markAsRead = useCallback(async (conversationId) => {
     try {
       await api.conversations.markAsRead(conversationId);
 
@@ -558,7 +552,7 @@ export const ChatProvider = ({ children }) => {
     } catch (error) {
       console.error('Failed to mark as read:', error);
     }
-  };
+  }, []);
 
   const getMessages = (conversationId) => {
     return messages[conversationId] || [];

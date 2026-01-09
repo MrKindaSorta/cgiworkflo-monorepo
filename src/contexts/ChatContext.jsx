@@ -233,6 +233,7 @@ export const ChatProvider = ({ children }) => {
       // Update messages
       if (data.messages && Object.keys(data.messages).length > 0) {
         setMessages((prev) => {
+          let hasChanges = false;
           const updated = { ...prev };
 
           Object.keys(data.messages).forEach((convId) => {
@@ -240,6 +241,7 @@ export const ChatProvider = ({ children }) => {
 
             if (!updated[convId]) {
               updated[convId] = newMessages;
+              hasChanges = true;
             } else {
               // Merge new messages, avoid duplicates
               const existingIds = new Set(updated[convId].map((m) => m.id));
@@ -248,20 +250,35 @@ export const ChatProvider = ({ children }) => {
               // Only update array if there are new messages to add
               if (toAdd.length > 0) {
                 updated[convId] = [...updated[convId], ...toAdd].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                hasChanges = true;
               }
-            }
-
-            // Update conversation timestamp for differential queries
-            if (newMessages.length > 0) {
-              const lastMsg = newMessages[newMessages.length - 1];
-              setConversationTimestamps((prev) => ({
-                ...prev,
-                [convId]: lastMsg.timestamp,
-              }));
             }
           });
 
+          // CRITICAL: Only return new object if something actually changed
+          if (!hasChanges) {
+            return prev;  // Return same reference - prevents re-renders
+          }
+
           return updated;
+        });
+
+        // Move timestamp updates OUTSIDE the messages update to prevent cascading re-renders
+        Object.keys(data.messages).forEach((convId) => {
+          const newMessages = data.messages[convId];
+          if (newMessages.length > 0) {
+            const lastMsg = newMessages[newMessages.length - 1];
+            setConversationTimestamps((prev) => {
+              // Only update if timestamp actually changed
+              if (prev[convId] === lastMsg.timestamp) {
+                return prev;
+              }
+              return {
+                ...prev,
+                [convId]: lastMsg.timestamp,
+              };
+            });
+          }
         });
       }
 

@@ -60,7 +60,7 @@ const Chat = () => {
 
   const conversationMessages = useMemo(
     () => (activeConversationId ? messages[activeConversationId] || [] : []),
-    [activeConversationId, messages]
+    [activeConversationId, messages[activeConversationId]]
   );
 
   useEffect(() => {
@@ -839,7 +839,7 @@ const Chat = () => {
   );
 
   return (
-    <div className="fixed inset-0 top-14 bottom-16 md:static md:h-full flex flex-col md:flex-row bg-white dark:bg-gray-800 overflow-hidden">
+    <div className="fixed inset-0 top-14 bottom-16 md:static md:h-full flex flex-col md:flex-row bg-white dark:bg-gray-800">
       {/* Conversation List */}
       <div
         className={`${

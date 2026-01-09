@@ -29,7 +29,7 @@ import {
 
 // Loading skeleton components
 const ConversationSkeleton = () => (
-  <div className="w-full p-4 flex items-start gap-3 animate-pulse">
+  <div className="w-full p-3 md:p-4 flex items-start gap-3 animate-pulse border-b border-gray-200 dark:border-gray-700">
     <div className="w-14 h-14 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
     <div className="flex-1 min-w-0">
       <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2" />
@@ -46,6 +46,50 @@ const MessageSkeleton = () => (
     </div>
   </div>
 );
+
+// Reusable ConversationAvatar component
+const ConversationAvatar = memo(({ conversation, displayName, size = 'md', showOnlineStatus = false, isOnline = false }) => {
+  const sizeClasses = {
+    sm: 'w-8 h-8 text-xs',
+    md: 'w-11 h-11 text-base',
+    lg: 'w-14 h-14 text-lg',
+  };
+
+  const iconSizes = {
+    sm: 'w-4 h-4',
+    md: 'w-6 h-6',
+    lg: 'w-7 h-7',
+  };
+
+  const onlineIndicatorSizes = {
+    sm: 'w-2 h-2',
+    md: 'w-3 h-3',
+    lg: 'w-4 h-4',
+  };
+
+  return (
+    <div className="relative flex-shrink-0">
+      <div
+        className={`${sizeClasses[size]} rounded-full flex items-center justify-center text-white font-bold shadow-md ${
+          conversation.type === 'open'
+            ? 'bg-gradient-to-br from-green-500 to-emerald-600'
+            : conversation.type === 'group'
+            ? 'bg-gradient-to-br from-blue-500 to-blue-600'
+            : `bg-gradient-to-br ${getAvatarColor(conversation.id)}`
+        }`}
+      >
+        {conversation.type === 'open' || conversation.type === 'group' ? (
+          <Users className={iconSizes[size]} />
+        ) : (
+          getInitials(displayName)
+        )}
+      </div>
+      {showOnlineStatus && isOnline && (
+        <div className={`absolute bottom-0 right-0 ${onlineIndicatorSizes[size]} bg-green-500 border-2 border-white dark:border-gray-900 rounded-full`}></div>
+      )}
+    </div>
+  );
+});
 
 const Chat = () => {
   const { t } = useTranslation();
@@ -131,6 +175,13 @@ const Chat = () => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
+
+    // Cleanup: Clear ref on unmount to prevent stale references
+    return () => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current = null;
+      }
+    };
   }, [activeConversationId]);
 
   // Debounced markAsRead when conversation changes
@@ -286,29 +337,40 @@ const Chat = () => {
     };
   }, [activeConversationId]);
 
-  const getLastMessage = (conversation) => {
-    const convMessages = getMessages(conversation.id);
-    if (convMessages.length === 0) return '';
+  // Memoize last messages map to avoid repeated getMessages calls
+  const lastMessagesMap = useMemo(() => {
+    const map = {};
+    conversations.forEach((conv) => {
+      const convMessages = messages[conv.id] || [];
+      if (convMessages.length === 0) {
+        map[conv.id] = '';
+      } else {
+        const lastMsg = convMessages[convMessages.length - 1];
+        const isOwn = lastMsg.senderId === user.id;
+        const prefix = isOwn ? 'You: ' : '';
+        const content =
+          lastMsg.content.length > 40 ? lastMsg.content.substring(0, 40) + '...' : lastMsg.content;
+        map[conv.id] = prefix + content;
+      }
+    });
+    return map;
+  }, [conversations, messages, user.id]);
 
-    const lastMsg = convMessages[convMessages.length - 1];
-    const isOwn = lastMsg.senderId === user.id;
-    const prefix = isOwn ? 'You: ' : '';
-    const content =
-      lastMsg.content.length > 40 ? lastMsg.content.substring(0, 40) + '...' : lastMsg.content;
-
-    return prefix + content;
-  };
-
-  const ConversationItem = memo(({ conversation }) => {
+  const ConversationItem = memo(({ conversation, lastMessage }) => {
     const isActive = selectedConversation?.id === conversation.id;
     const displayName = getConversationName(conversation);
-    const lastMessage = getLastMessage(conversation);
     const hasUnread = conversation.unreadCount > 0;
     const lastMsgDate = new Date(conversation.updatedAt);
     const isToday = lastMsgDate.toDateString() === new Date().toDateString();
     const timeDisplay = isToday
       ? formatTime(conversation.updatedAt)
       : lastMsgDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+    // Check online status for direct messages
+    const otherUserId = conversation.type === 'direct'
+      ? conversation.participants?.find((p) => p.userId !== user.id)?.userId
+      : null;
+    const online = otherUserId ? isUserOnline(otherUserId) : false;
 
     return (
       <button
@@ -326,32 +388,13 @@ const Chat = () => {
         }`}
       >
         {/* Avatar */}
-        <div className="relative flex-shrink-0">
-          <div
-            className={`w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md ${
-              conversation.type === 'open'
-                ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-                : conversation.type === 'group'
-                ? 'bg-gradient-to-br from-blue-500 to-blue-600'
-                : `bg-gradient-to-br ${getAvatarColor(conversation.id)}`
-            }`}
-          >
-            {conversation.type === 'open' || conversation.type === 'group' ? (
-              <Users className="w-7 h-7" />
-            ) : (
-              getInitials(displayName)
-            )}
-          </div>
-          {conversation.type === 'direct' && (() => {
-            const participants = conversation.participants || [];
-            const otherId = participants.find((p) => p.userId !== user.id)?.userId;
-            const online = otherId ? isUserOnline(otherId) : false;
-
-            return online && (
-              <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full"></div>
-            );
-          })()}
-        </div>
+        <ConversationAvatar
+          conversation={conversation}
+          displayName={displayName}
+          size="lg"
+          showOnlineStatus={conversation.type === 'direct'}
+          isOnline={online}
+        />
 
         {/* Content */}
         <div className="flex-1 min-w-0">
@@ -726,26 +769,13 @@ const Chat = () => {
               <ArrowLeft className="w-5 h-5 text-gray-700 dark:text-gray-300" />
             </button>
 
-            <div className="relative flex-shrink-0">
-              <div
-                className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold shadow-md ${
-                  selectedConversation.type === 'open'
-                    ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-                    : selectedConversation.type === 'group'
-                    ? 'bg-gradient-to-br from-blue-500 to-blue-600'
-                    : `bg-gradient-to-br ${getAvatarColor(selectedConversation.id)}`
-                }`}
-              >
-                {selectedConversation.type === 'open' || selectedConversation.type === 'group' ? (
-                  <Users className="w-6 h-6" />
-                ) : (
-                  getInitials(displayName)
-                )}
-              </div>
-              {selectedConversation.type === 'direct' && otherUser && isUserOnline(otherUser.id) && (
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full"></div>
-              )}
-            </div>
+            <ConversationAvatar
+              conversation={selectedConversation}
+              displayName={displayName}
+              size="md"
+              showOnlineStatus={selectedConversation.type === 'direct' && !!otherUser}
+              isOnline={otherUser ? isUserOnline(otherUser.id) : false}
+            />
 
             <div className="flex-1 min-w-0">
               <h2 className="font-semibold text-gray-900 dark:text-gray-100 truncate text-lg">
@@ -839,7 +869,7 @@ const Chat = () => {
         } md:w-96 flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-hidden`}
       >
         {/* Header */}
-        <div className="p-3 md:p-4 md:p-3 md:p-4 md:p-5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="p-3 md:p-4 lg:p-5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {t('chat.title')}
@@ -936,7 +966,11 @@ const Chat = () => {
             </div>
           ) : (
             filteredConversations.map((conversation) => (
-              <ConversationItem key={conversation.id} conversation={conversation} />
+              <ConversationItem
+                key={conversation.id}
+                conversation={conversation}
+                lastMessage={lastMessagesMap[conversation.id] || ''}
+              />
             ))
           )}
         </div>

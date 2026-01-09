@@ -51,9 +51,61 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload }) 
     setMessage('');
   };
 
+  // MIME type validation
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+  const ALLOWED_FILE_TYPES = [
+    ...ALLOWED_IMAGE_TYPES,
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain',
+    'text/csv',
+    'application/zip',
+    'application/x-zip-compressed',
+  ];
+
+  const validateFile = (file, type) => {
+    const allowedTypes = type === 'image' ? ALLOWED_IMAGE_TYPES : ALLOWED_FILE_TYPES;
+
+    if (!allowedTypes.includes(file.type)) {
+      return {
+        valid: false,
+        error: `File type "${file.type}" is not allowed. ${type === 'image' ? 'Only images are allowed.' : 'Only documents, images, and archives are allowed.'}`,
+      };
+    }
+
+    // Check file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      return {
+        valid: false,
+        error: `File "${file.name}" is too large. Maximum size is 10MB.`,
+      };
+    }
+
+    return { valid: true };
+  };
+
   const handleFileSelect = (files, type) => {
     if (files && files.length > 0) {
-      onFileUpload(Array.from(files), type);
+      const fileArray = Array.from(files);
+
+      // Validate all files
+      for (const file of fileArray) {
+        const validation = validateFile(file, type);
+        if (!validation.valid) {
+          // Show error toast (assuming toast is available globally)
+          console.error('File validation failed:', validation.error);
+          alert(validation.error); // Fallback to alert if toast not available
+          return;
+        }
+      }
+
+      onFileUpload(fileArray, type);
     }
   };
 

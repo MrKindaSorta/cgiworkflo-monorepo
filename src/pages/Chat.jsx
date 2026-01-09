@@ -5,6 +5,7 @@ import DOMPurify from 'dompurify';
 import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
 import { api } from '../lib/api-client';
+import ErrorBoundary from '../components/ErrorBoundary';
 import {
   MessageSquare,
   Users,
@@ -19,7 +20,30 @@ import {
   Camera,
   Paperclip,
   UserPlus,
+  Clock,
+  Check,
+  XCircle,
 } from 'lucide-react';
+
+// Loading skeleton components
+const ConversationSkeleton = () => (
+  <div className="w-full p-4 flex items-start gap-3 animate-pulse">
+    <div className="w-14 h-14 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+    <div className="flex-1 min-w-0">
+      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2" />
+      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+    </div>
+  </div>
+);
+
+const MessageSkeleton = () => (
+  <div className="flex items-end gap-2 mt-4 animate-pulse">
+    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+    <div className="flex-1 max-w-[75%]">
+      <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-xl w-full" />
+    </div>
+  </div>
+);
 
 const Chat = () => {
   const { t } = useTranslation();
@@ -45,7 +69,9 @@ const Chat = () => {
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
   const messagesEndRef = useRef(null);
+  const scrollContainerRef = useRef(null);
   const inputRef = useRef(null);
   const attachmentMenuRef = useRef(null);
   const photoInputRef = useRef(null);
@@ -73,9 +99,30 @@ const Chat = () => {
     [conversationMessages]
   );
 
+  // Smart auto-scroll - only when user is at bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [conversationMessages, selectedConversation]);
+    if (isAtBottom && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto' }); // Use 'auto' not 'smooth'
+    }
+  }, [conversationMessages, isAtBottom]);
+
+  // Detect scroll position with IntersectionObserver
+  useEffect(() => {
+    if (!messagesEndRef.current || !scrollContainerRef.current) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsAtBottom(entry.isIntersecting);
+      },
+      {
+        root: scrollContainerRef.current,
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(messagesEndRef.current);
+    return () => observer.disconnect();
+  }, [selectedConversation]);
 
   // Keep input focused when conversation is active
   useEffect(() => {
@@ -300,6 +347,10 @@ const Chat = () => {
           setActiveConversationId(conversation.id);
           markAsRead(conversation.id);
         }}
+        aria-label={`Conversation with ${displayName}${
+          hasUnread ? `, ${conversation.unreadCount} unread messages` : ''
+        }`}
+        aria-current={isActive ? 'true' : 'false'}
         className={`w-full p-3 md:p-4 flex items-start gap-3 transition-all duration-200 border-b ${
           isActive
             ? 'bg-primary-50/80 dark:bg-primary-900/15 border-primary-200 dark:border-primary-800/50 border-l-4 border-l-primary-500 dark:border-l-primary-500 shadow-sm dark:ring-1 dark:ring-primary-700/30'
@@ -414,6 +465,8 @@ const Chat = () => {
         )}
 
         <div
+          role="article"
+          aria-label={`Message from ${sender?.name} at ${formatTime(message.timestamp)}`}
           className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'} ${
             isGrouped ? 'mt-1' : 'mt-4'
           }`}
@@ -495,9 +548,22 @@ const Chat = () => {
             </div>
 
             {isLastInGroup && (
-              <span className="text-[11px] text-gray-500 dark:text-gray-500 mt-1 px-1">
-                {formatTime(message.timestamp)}
-              </span>
+              <div className="flex items-center gap-1.5 mt-1 px-1">
+                <span className="text-[11px] text-gray-500 dark:text-gray-500">
+                  {formatTime(message.timestamp)}
+                </span>
+                {isOwn && (
+                  <span className="text-[11px]">
+                    {message._isPending ? (
+                      <Clock className="w-3 h-3 text-gray-400 animate-pulse" />
+                    ) : message._failed ? (
+                      <XCircle className="w-3 h-3 text-red-500" />
+                    ) : (
+                      <Check className="w-3 h-3 text-green-500" />
+                    )}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -676,9 +742,9 @@ const Chat = () => {
       : null;
 
   const conversationViewContent = selectedConversation ? (
-    <div className="flex flex-col flex-1 bg-white dark:bg-gray-900">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
+        <div className="flex-shrink-0 flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               onClick={() => setActiveConversationId(null)}
@@ -734,7 +800,10 @@ const Chat = () => {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 bg-gray-50 dark:bg-gray-900">
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 py-4 bg-gray-50 dark:bg-gray-900 mobile-scroll"
+        >
           {conversationMessages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full">
               <div className="w-16 h-16 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
@@ -762,7 +831,7 @@ const Chat = () => {
         {/* Message Input */}
         <form
           onSubmit={handleSendMessage}
-          className="px-4 md:px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+          className="flex-shrink-0 px-4 md:px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
         >
           <div className="flex items-end gap-3 relative">
             <div className="relative">
@@ -782,8 +851,11 @@ const Chat = () => {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder={t('chat.typeMessage')}
+                aria-label="Message input"
+                aria-describedby={sending ? 'sending-status' : undefined}
                 className="w-full px-5 py-3.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
               />
+              {sending && <span id="sending-status" className="sr-only">Sending message</span>}
             </div>
             <button
               type="submit"
@@ -851,12 +923,13 @@ const Chat = () => {
   );
 
   return (
-    <div className="flex flex-col md:flex-row h-full bg-white dark:bg-gray-800">
+    <ErrorBoundary>
+      <div className="flex flex-col md:flex-row h-full overflow-hidden bg-white dark:bg-gray-800">
       {/* Conversation List */}
       <div
         className={`${
           selectedConversation ? 'hidden md:flex' : 'flex'
-        } md:w-96 flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700`}
+        } md:w-96 flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-hidden`}
       >
         {/* Header */}
         <div className="p-3 md:p-4 md:p-3 md:p-4 md:p-5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
@@ -930,7 +1003,13 @@ const Chat = () => {
 
         {/* Conversation List */}
         <div className="flex-1 overflow-y-auto">
-          {filteredConversations.length === 0 ? (
+          {loading ? (
+            <>
+              <ConversationSkeleton />
+              <ConversationSkeleton />
+              <ConversationSkeleton />
+            </>
+          ) : filteredConversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center">
               <div className="w-16 h-16 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
                 <MessageSquare className="w-10 h-10 text-gray-400 dark:text-gray-500" />
@@ -957,14 +1036,15 @@ const Chat = () => {
       </div>
 
       {/* Conversation View */}
-      <div className={`${selectedConversation ? 'flex' : 'hidden md:flex'} flex-1 flex-col`}>
+      <div className={`${selectedConversation ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-h-0 overflow-hidden`}>
         {conversationViewContent}
       </div>
 
       {/* Modals */}
       <NewChatModal />
       <ImageLightbox />
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 

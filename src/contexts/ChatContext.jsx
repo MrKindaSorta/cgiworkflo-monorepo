@@ -23,6 +23,18 @@ const PollingState = {
 };
 
 // ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+// Shallow equality check - more efficient than JSON.stringify
+const shallowEqual = (obj1, obj2) => {
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+  if (keys1.length !== keys2.length) return false;
+  return keys1.every((key) => obj1[key] === obj2[key]);
+};
+
+// ============================================================================
 // CHAT PROVIDER
 // ============================================================================
 
@@ -229,7 +241,7 @@ export const ChatProvider = ({ children }) => {
             if (index >= 0) {
               // Check if conversation actually changed
               const existing = updated[index];
-              const isChanged = JSON.stringify(existing) !== JSON.stringify(newConv);
+              const isChanged = !shallowEqual(existing, newConv);
               if (isChanged) {
                 updated[index] = { ...existing, ...newConv };
                 hasChanges = true;
@@ -261,6 +273,7 @@ export const ChatProvider = ({ children }) => {
         setMessages((prev) => {
           let hasChanges = false;
           const updated = { ...prev };
+          const timestampUpdates = {};
 
           Object.keys(data.messages).forEach((convId) => {
             const newMessages = data.messages[convId];
@@ -275,36 +288,34 @@ export const ChatProvider = ({ children }) => {
 
               // Only update array if there are new messages to add
               if (toAdd.length > 0) {
-                updated[convId] = [...updated[convId], ...toAdd].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                updated[convId] = [...updated[convId], ...toAdd].sort(
+                  (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+                );
                 hasChanges = true;
               }
             }
+
+            // Collect timestamp updates
+            if (newMessages.length > 0) {
+              const lastMsg = newMessages[newMessages.length - 1];
+              timestampUpdates[convId] = lastMsg.timestamp;
+            }
           });
 
-          // CRITICAL: Only return new object if something actually changed
-          if (!hasChanges) {
-            return prev;  // Return same reference - prevents re-renders
-          }
-
-          return updated;
-        });
-
-        // Move timestamp updates OUTSIDE the messages update to prevent cascading re-renders
-        Object.keys(data.messages).forEach((convId) => {
-          const newMessages = data.messages[convId];
-          if (newMessages.length > 0) {
-            const lastMsg = newMessages[newMessages.length - 1];
-            setConversationTimestamps((prev) => {
-              // Only update if timestamp actually changed
-              if (prev[convId] === lastMsg.timestamp) {
-                return prev;
-              }
-              return {
-                ...prev,
-                [convId]: lastMsg.timestamp,
-              };
+          // Batch timestamp update AFTER messages using queueMicrotask
+          if (Object.keys(timestampUpdates).length > 0) {
+            queueMicrotask(() => {
+              setConversationTimestamps((prev) => {
+                const needsUpdate = Object.keys(timestampUpdates).some(
+                  (key) => prev[key] !== timestampUpdates[key]
+                );
+                return needsUpdate ? { ...prev, ...timestampUpdates } : prev;
+              });
             });
           }
+
+          // CRITICAL: Only return new object if something actually changed
+          return hasChanges ? updated : prev;
         });
       }
 

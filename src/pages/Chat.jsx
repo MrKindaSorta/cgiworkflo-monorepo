@@ -70,9 +70,8 @@ const Chat = () => {
   const [lightboxImage, setLightboxImage] = useState(null);
   const messagesEndRef = useRef(null);
   const scrollContainerRef = useRef(null);
-  const previousMessageCountRef = useRef(0);
-  const userScrolledRef = useRef(false);
-  const scrollTimeoutRef = useRef(null);
+  const isAutoScrollingRef = useRef(false);
+  const shouldStayAtBottomRef = useRef(true);
 
   // Memoize to prevent re-renders when conversations array updates
   const selectedConversation = useMemo(
@@ -80,10 +79,8 @@ const Chat = () => {
     [conversations, activeConversationId]
   );
 
-  const conversationMessages = useMemo(
-    () => (activeConversationId ? messages[activeConversationId] || [] : []),
-    [activeConversationId, messages]
-  );
+  // CRITICAL: Only recalculate when THIS conversation's messages change
+  const conversationMessages = activeConversationId ? messages[activeConversationId] || [] : [];
 
   const enhancedMessages = useMemo(
     () =>
@@ -92,64 +89,62 @@ const Chat = () => {
         previousMessage: conversationMessages[idx - 1] || null,
         nextMessage: conversationMessages[idx + 1] || null,
       })),
-    [conversationMessages]
+    [conversationMessages.length, conversationMessages[conversationMessages.length - 1]?.id]
   );
 
-  // Simple, reliable auto-scroll - only for NEW messages
-  useEffect(() => {
-    const currentCount = conversationMessages.length;
-    const previousCount = previousMessageCountRef.current;
+  // BULLETPROOF scroll logic - always scroll to bottom unless user manually scrolled up
+  const scrollToBottom = useCallback(() => {
+    if (!scrollContainerRef.current) return;
 
-    // Only auto-scroll if:
-    // 1. This is the initial load (previousCount === 0)
-    // 2. OR a new message was added (currentCount > previousCount) AND user hasn't manually scrolled recently
-    if (currentCount > 0 && messagesEndRef.current && scrollContainerRef.current) {
-      const isInitialLoad = previousCount === 0;
-      const hasNewMessage = currentCount > previousCount;
+    isAutoScrollingRef.current = true;
+    scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
 
-      if (isInitialLoad || (hasNewMessage && !userScrolledRef.current)) {
-        // Scroll to bottom instantly
-        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
-      }
-    }
+    // Clear flag after scroll completes
+    requestAnimationFrame(() => {
+      isAutoScrollingRef.current = false;
+    });
+  }, []);
 
-    previousMessageCountRef.current = currentCount;
-  }, [conversationMessages.length]); // Only depend on length!
+  // Check if user is at bottom (within 100px threshold)
+  const checkIfAtBottom = useCallback(() => {
+    if (!scrollContainerRef.current) return true;
 
-  // Track user scrolling to prevent auto-scroll interference
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    return distanceFromBottom < 100; // 100px threshold
+  }, []);
+
+  // Detect manual user scrolling (not programmatic)
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
     if (!scrollContainer) return;
 
     const handleScroll = () => {
-      // Clear existing timeout
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
+      // Ignore if this is a programmatic scroll
+      if (isAutoScrollingRef.current) return;
 
-      // Mark that user has scrolled
-      userScrolledRef.current = true;
-
-      // Reset after 2 seconds of no scrolling
-      scrollTimeoutRef.current = setTimeout(() => {
-        userScrolledRef.current = false;
-      }, 2000);
+      // User manually scrolled - check if they're at bottom
+      shouldStayAtBottomRef.current = checkIfAtBottom();
     };
 
     scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      scrollContainer.removeEventListener('scroll', handleScroll);
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, []);
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [checkIfAtBottom]);
 
-  // Reset scroll tracking when conversation changes
+  // Auto-scroll on message updates IF user wants to stay at bottom
+  // Only depend on length and last message ID to prevent unnecessary scrolls
+  const lastMessageId = conversationMessages[conversationMessages.length - 1]?.id;
   useEffect(() => {
-    userScrolledRef.current = false;
-    previousMessageCountRef.current = 0;
-  }, [activeConversationId]);
+    if (conversationMessages.length > 0 && shouldStayAtBottomRef.current) {
+      scrollToBottom();
+    }
+  }, [conversationMessages.length, lastMessageId, scrollToBottom]);
+
+  // Always scroll to bottom when conversation changes
+  useEffect(() => {
+    shouldStayAtBottomRef.current = true;
+    scrollToBottom();
+  }, [activeConversationId, scrollToBottom]);
 
 
   const getOtherParticipant = (conversation) => {
@@ -159,7 +154,7 @@ const Chat = () => {
     return users.find((u) => u.id === otherId);
   };
 
-  const getConversationName = (conversation) => {
+  const getConversationName = useCallback((conversation) => {
     if (conversation.type === 'open') return 'Open Chat';
     if (conversation.type === 'group') return conversation.name || 'Unnamed Group';
     if (conversation.type === 'direct') {
@@ -167,7 +162,7 @@ const Chat = () => {
       return otherUser?.name || 'Unknown User';
     }
     return 'Unknown';
-  };
+  }, [users, user.id]);
 
   const filteredConversations = useMemo(() => {
     return conversations
@@ -406,6 +401,13 @@ const Chat = () => {
           </div>
         </div>
       </button>
+    );
+  }, (prevProps, nextProps) => {
+    // Only re-render if conversation data actually changed
+    return (
+      prevProps.conversation.id === nextProps.conversation.id &&
+      prevProps.conversation.updatedAt === nextProps.conversation.updatedAt &&
+      prevProps.conversation.unreadCount === nextProps.conversation.unreadCount
     );
   });
 

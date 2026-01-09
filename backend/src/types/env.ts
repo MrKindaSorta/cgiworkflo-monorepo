@@ -25,6 +25,7 @@ export interface Env {
   DB: D1Database;        // D1 database binding
   PHOTOS: R2Bucket;      // R2 bucket for photos/attachments
   CACHE: KVNamespace;    // KV namespace for caching and rate limiting
+  CHAT_ROOMS: DurableObjectNamespace; // Durable Object namespace for chat rooms
 }
 
 /**

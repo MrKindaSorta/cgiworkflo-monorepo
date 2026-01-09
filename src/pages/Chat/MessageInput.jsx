@@ -2,7 +2,7 @@ import { useState, useRef, memo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Send, Plus, Image, Camera, Paperclip } from 'lucide-react';
 
-const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload }) => {
+const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload, onTyping }) => {
   const { t } = useTranslation();
   const [message, setMessage] = useState('');
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
@@ -11,6 +11,8 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload }) 
   const photoInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const isTypingRef = useRef(false);
 
   // Debug: Track component renders
   useEffect(() => {
@@ -52,9 +54,54 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload }) 
     e.preventDefault();
     if (!message.trim() || sending) return;
 
+    // Stop typing indicator
+    if (isTypingRef.current && onTyping) {
+      onTyping(false);
+      isTypingRef.current = false;
+    }
+
     onSendMessage(message.trim());
     setMessage('');
   };
+
+  // Handle typing indicator
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setMessage(value);
+
+    if (!onTyping) return;
+
+    // If user is typing, send typing indicator
+    if (value.length > 0 && !isTypingRef.current) {
+      onTyping(true);
+      isTypingRef.current = true;
+    }
+
+    // Reset typing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Stop typing indicator after 3 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      if (isTypingRef.current && onTyping) {
+        onTyping(false);
+        isTypingRef.current = false;
+      }
+    }, 3000);
+  };
+
+  // Cleanup typing timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (isTypingRef.current && onTyping) {
+        onTyping(false);
+      }
+    };
+  }, [onTyping]);
 
   // MIME type validation
   const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
@@ -199,7 +246,7 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload }) 
           <input
             type="text"
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={handleInputChange}
             placeholder={t('chat.typeMessage')}
             aria-label="Message input"
             aria-describedby={sending ? 'sending-status' : undefined}
@@ -263,7 +310,8 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload }) 
     prevProps.sending === nextProps.sending &&
     prevProps.uploading === nextProps.uploading &&
     prevProps.onSendMessage === nextProps.onSendMessage &&
-    prevProps.onFileUpload === nextProps.onFileUpload
+    prevProps.onFileUpload === nextProps.onFileUpload &&
+    prevProps.onTyping === nextProps.onTyping
   );
 });
 

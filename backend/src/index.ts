@@ -13,6 +13,7 @@ import presenceRoutes from './routes/presence';
 import chatSyncRoutes from './routes/chat-sync';
 import uploadsRoutes from './routes/uploads';
 import filesRoutes from './routes/files';
+import websocketRoutes from './routes/websocket';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -88,8 +89,11 @@ app.route('/api/conversations', conversationRoutes);
 // Presence tracking routes (protected)
 app.route('/api/presence', presenceRoutes);
 
-// Chat sync route for efficient polling (protected)
+// Chat sync route for efficient polling (protected) - DEPRECATED, use WebSockets
 app.route('/api/chat', chatSyncRoutes);
+
+// WebSocket routes for real-time chat (protected)
+app.route('/ws', websocketRoutes);
 
 // File upload routes (protected)
 app.route('/api/uploads', uploadsRoutes);
@@ -162,3 +166,6 @@ app.onError((err, c) => {
 // ============================================================================
 
 export default app;
+
+// Export Durable Objects
+export { ChatRoomDO } from './durable-objects/ChatRoomDO';

@@ -35,6 +35,16 @@ binding = "CACHE"
 id = "f39f8dd9ff7b4290826ad1d02ad36432"
 preview_id = "3d9b48b2041648e39e40820e12eb6797"
 
+# Durable Objects for WebSocket chat rooms
+[[durable_objects.bindings]]
+name = "CHAT_ROOMS"
+class_name = "ChatRoomDO"
+script_name = "cgiworkflo-api"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatRoomDO"]
+
 # Secrets (set via `wrangler secret put <KEY>`)
 # Required secrets:
 #   - JWT_SECRET (generate with: openssl rand -base64 32)
@@ -57,6 +67,11 @@ bucket_name = "cgiworkflo-photos-development"
 [[env.development.kv_namespaces]]
 binding = "CACHE"
 id = "3d9b48b2041648e39e40820e12eb6797"
+
+[[env.development.durable_objects.bindings]]
+name = "CHAT_ROOMS"
+class_name = "ChatRoomDO"
+script_name = "cgiworkflo-api-dev"
 
 # Staging environment
 [env.staging]

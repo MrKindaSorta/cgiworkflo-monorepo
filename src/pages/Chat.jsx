@@ -107,8 +107,10 @@ const Chat = () => {
     isUserOnline,
     loading,
     sending,
-    syncError,
-    retrySync,
+    wsConnected,
+    wsError,
+    getTypingUsers,
+    sendTypingIndicator,
   } = useChat();
 
   const [activeTab, setActiveTab] = useState('direct');
@@ -464,6 +466,13 @@ const Chat = () => {
     // Mark that we should scroll (user sent message)
     shouldScrollRef.current = true;
   }, [processMessageQueue]); // Only depends on processMessageQueue (which is now stable)
+
+  // Handle typing indicator
+  const handleTyping = useCallback((isTyping) => {
+    if (activeConversationIdRef.current && sendTypingIndicator) {
+      sendTypingIndicator(activeConversationIdRef.current, isTyping);
+    }
+  }, [sendTypingIndicator]);
 
   // Retry failed message - STABLE
   const handleRetryMessage = useCallback(async (message) => {
@@ -1157,12 +1166,38 @@ const Chat = () => {
           )}
         </div>
 
+        {/* Typing Indicator */}
+        {activeConversationId && getTypingUsers && (() => {
+          const typingUsers = getTypingUsers(activeConversationId);
+          if (typingUsers.length === 0) return null;
+
+          const typingText = typingUsers.length === 1
+            ? `${typingUsers[0].userName} is typing...`
+            : typingUsers.length === 2
+            ? `${typingUsers[0].userName} and ${typingUsers[1].userName} are typing...`
+            : `${typingUsers.length} people are typing...`;
+
+          return (
+            <div className="flex-shrink-0 px-4 md:px-6 py-2 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                </div>
+                <span>{typingText}</span>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Message Input - Isolated Component */}
         <MessageInput
           onSendMessage={handleSendMessage}
           sending={sending}
           uploading={uploading}
           onFileUpload={handleFileUpload}
+          onTyping={handleTyping}
         />
     </div>
     );

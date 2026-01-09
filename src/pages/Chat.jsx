@@ -146,20 +146,25 @@ const Chat = () => {
 
   const hasMoreMessages = allConversationMessages.length > messageDisplayLimit;
 
-  // Simple auto-scroll to bottom on new messages
+  // Disable browser's automatic scroll restoration
   useEffect(() => {
-    if (conversationMessages.length > 0 && scrollContainerRef.current) {
-      const container = scrollContainerRef.current;
-      // Only auto-scroll if user is near the bottom (within 150px)
-      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
-
-      if (isNearBottom) {
-        container.scrollTop = container.scrollHeight;
-      }
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
     }
-  }, [conversationMessages.length]);
+
+    return () => {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'auto';
+      }
+    };
+  }, []);
+
+  // REMOVED: Auto-scroll on message length change
+  // This was causing unwanted scrolling during polling updates.
+  // Scroll now only happens on: conversation change, user sends message, keyboard opens
 
   // Handle mobile keyboard visibility changes (viewport resize)
+  // Only scroll if user is actively typing (input focused)
   useEffect(() => {
     let resizeTimeout;
 
@@ -167,21 +172,24 @@ const Chat = () => {
       // Debounce resize events
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
-        if (messagesEndRef.current && scrollContainerRef.current) {
-          // Scroll to bottom when keyboard opens/closes
+        // Only auto-scroll if user is typing (input focused)
+        const inputFocused = document.activeElement?.tagName === 'INPUT' ||
+                            document.activeElement?.tagName === 'TEXTAREA';
+
+        if (inputFocused && messagesEndRef.current && scrollContainerRef.current) {
+          // Scroll to bottom when keyboard opens while typing
           messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
       }, 100);
     };
 
-    // Listen for viewport resize (keyboard open/close on mobile)
+    // Only use visualViewport for mobile keyboard detection
+    // Don't use generic window resize (causes issues with polling/UI updates)
     window.visualViewport?.addEventListener('resize', handleResize);
-    window.addEventListener('resize', handleResize);
 
     return () => {
       clearTimeout(resizeTimeout);
       window.visualViewport?.removeEventListener('resize', handleResize);
-      window.removeEventListener('resize', handleResize);
     };
   }, []);
 
@@ -318,6 +326,13 @@ const Chat = () => {
 
     // Process queue
     processMessageQueue();
+
+    // Scroll to bottom after sending message (let optimistic update render first)
+    setTimeout(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+      }
+    }, 100);
   }, [activeConversationId, processMessageQueue]);
 
   // Retry failed message

@@ -4,7 +4,7 @@
  * Handles conversations, messages, and presence tracking
  */
 
-import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback, startTransition } from 'react';
 import { useAuth } from './AuthContext';
 import { api } from '../lib/api-client';
 
@@ -230,9 +230,10 @@ export const ChatProvider = ({ children }) => {
 
       const data = response.data.data;
 
-      // Update conversations
+      // Update conversations - wrap in startTransition for non-urgent updates
       if (data.conversations && data.conversations.length > 0) {
-        setConversations((prev) => {
+        startTransition(() => {
+          setConversations((prev) => {
           let hasChanges = false;
           const updated = [...prev];
 
@@ -265,12 +266,14 @@ export const ChatProvider = ({ children }) => {
 
           // CRITICAL: Return same reference if nothing changed
           return hasChanges ? updated : prev;
+          });
         });
       }
 
-      // Update messages
+      // Update messages - wrap in startTransition
       if (data.messages && Object.keys(data.messages).length > 0) {
-        setMessages((prev) => {
+        startTransition(() => {
+          setMessages((prev) => {
           let hasChanges = false;
           const updated = { ...prev };
           const timestampUpdates = {};
@@ -316,12 +319,14 @@ export const ChatProvider = ({ children }) => {
 
           // CRITICAL: Only return new object if something actually changed
           return hasChanges ? updated : prev;
+          });
         });
       }
 
-      // Update presence
+      // Update presence - wrap in startTransition
       if (data.presence && Object.keys(data.presence).length > 0) {
-        setPresence((prev) => {
+        startTransition(() => {
+          setPresence((prev) => {
           let hasChanges = false;
           const updated = { ...prev };
 
@@ -334,6 +339,7 @@ export const ChatProvider = ({ children }) => {
 
           // CRITICAL: Only return new object if something changed
           return hasChanges ? updated : prev;
+          });
         });
       }
 

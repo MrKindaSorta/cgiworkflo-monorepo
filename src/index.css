@@ -58,6 +58,9 @@
   .mobile-scroll {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    /* GPU acceleration for smooth scrolling */
+    transform: translateZ(0);
+    will-change: scroll-position;
   }
 
   /* Safe area support for notched devices */
@@ -67,6 +70,21 @@
 
   .safe-area-inset-top {
     padding-top: env(safe-area-inset-top);
+  }
+
+  /* Performance optimization for chat messages */
+  .chat-message {
+    contain: layout style paint;
+    content-visibility: auto;
+    will-change: transform;
+    transform: translateZ(0);
+  }
+
+  /* Smooth transitions with GPU acceleration */
+  .gpu-accelerated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
   }
 }
 

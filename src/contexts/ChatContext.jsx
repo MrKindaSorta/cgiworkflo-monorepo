@@ -439,9 +439,9 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  const getConversation = (conversationId) => {
+  const getConversation = useCallback((conversationId) => {
     return conversations.find((c) => c.id === conversationId);
-  };
+  }, [conversations]);
 
   // ============================================================================
   // MESSAGE MANAGEMENT
@@ -545,7 +545,7 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  const markAsRead = async (conversationId) => {
+  const markAsRead = useCallback(async (conversationId) => {
     try {
       await api.conversations.markAsRead(conversationId);
 
@@ -558,11 +558,11 @@ export const ChatProvider = ({ children }) => {
     } catch (error) {
       console.error('Failed to mark as read:', error);
     }
-  };
+  }, []); // Empty deps - uses setState updater, all values stable
 
-  const getMessages = (conversationId) => {
+  const getMessages = useCallback((conversationId) => {
     return messages[conversationId] || [];
-  };
+  }, [messages]);
 
   // ============================================================================
   // PRESENCE MANAGEMENT
@@ -590,21 +590,21 @@ export const ChatProvider = ({ children }) => {
     return () => clearInterval(heartbeatInterval);
   }, [isAuthenticated, sendHeartbeat]);
 
-  const isUserOnline = (userId) => {
+  const isUserOnline = useCallback((userId) => {
     return presence[userId]?.isOnline || false;
-  };
+  }, [presence]);
 
-  const getUserLastSeen = (userId) => {
+  const getUserLastSeen = useCallback((userId) => {
     return presence[userId]?.lastSeen || null;
-  };
+  }, [presence]);
 
   // ============================================================================
   // HELPER FUNCTIONS
   // ============================================================================
 
-  const getTotalUnreadCount = () => {
+  const getTotalUnreadCount = useCallback(() => {
     return conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
-  };
+  }, [conversations]);
 
   // ============================================================================
   // CONTEXT VALUE

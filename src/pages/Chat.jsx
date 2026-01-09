@@ -113,10 +113,13 @@ const Chat = () => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
+  const [loadingConversation, setLoadingConversation] = useState(false);
   const messagesEndRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const markAsReadTimeoutRef = useRef(null);
   const uploadAbortControllerRef = useRef(null);
+  const messageQueueRef = useRef([]);
+  const processingQueueRef = useRef(false);
 
   // Memoize to prevent re-renders when conversations array updates
   const selectedConversation = useMemo(
@@ -191,11 +194,27 @@ const Chat = () => {
       clearTimeout(markAsReadTimeoutRef.current);
     }
 
-    // Only mark as read if there's an active conversation
+    // Show loading state when switching conversations
     if (activeConversationId) {
+      setLoadingConversation(true);
+
+      // Simulate loading messages (in real scenario, this would wait for getMessages)
+      const loadingTimeout = setTimeout(() => {
+        setLoadingConversation(false);
+      }, 150); // Short delay for loading indicator
+
       markAsReadTimeoutRef.current = setTimeout(() => {
         markAsRead(activeConversationId);
       }, 300); // 300ms debounce
+
+      return () => {
+        clearTimeout(loadingTimeout);
+        if (markAsReadTimeoutRef.current) {
+          clearTimeout(markAsReadTimeoutRef.current);
+        }
+      };
+    } else {
+      setLoadingConversation(false);
     }
 
     // Cleanup on unmount or conversation change
@@ -253,16 +272,54 @@ const Chat = () => {
       });
   }, [conversations, activeTab, searchQuery, getConversationName]);
 
-  const handleSendMessage = useCallback(async (content) => {
-    if (!content.trim() || !activeConversationId || sending) return;
+  // Process message queue to prevent rapid duplicates
+  const processMessageQueue = useCallback(async () => {
+    if (processingQueueRef.current || messageQueueRef.current.length === 0) return;
 
-    try {
-      await sendMessage(activeConversationId, content.trim());
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      toast.error('Failed to send message. Please try again.');
+    processingQueueRef.current = true;
+
+    while (messageQueueRef.current.length > 0) {
+      const { conversationId, content } = messageQueueRef.current[0];
+
+      try {
+        await sendMessage(conversationId, content);
+        messageQueueRef.current.shift(); // Remove successfully sent message
+      } catch (error) {
+        console.error('Failed to send message:', error);
+        toast.error('Failed to send message. Please try again.');
+        messageQueueRef.current.shift(); // Remove failed message from queue
+      }
     }
-  }, [activeConversationId, sending, sendMessage]);
+
+    processingQueueRef.current = false;
+  }, [sendMessage]);
+
+  const handleSendMessage = useCallback(async (content) => {
+    if (!content.trim() || !activeConversationId) return;
+
+    // Add to queue
+    messageQueueRef.current.push({
+      conversationId: activeConversationId,
+      content: content.trim(),
+    });
+
+    // Process queue
+    processMessageQueue();
+  }, [activeConversationId, processMessageQueue]);
+
+  // Retry failed message
+  const handleRetryMessage = useCallback(async (message) => {
+    if (!message._failed || !message.content) return;
+
+    // Add to queue for retry
+    messageQueueRef.current.push({
+      conversationId: message.conversationId || activeConversationId,
+      content: message.content,
+    });
+
+    // Process queue
+    processMessageQueue();
+  }, [activeConversationId, processMessageQueue]);
 
   const handleFileUpload = useCallback(async (files, type = 'file') => {
     if (!files || files.length === 0 || !activeConversationId || uploading) return;
@@ -356,8 +413,7 @@ const Chat = () => {
     return map;
   }, [conversations, messages, user.id]);
 
-  const ConversationItem = memo(({ conversation, lastMessage }) => {
-    const isActive = selectedConversation?.id === conversation.id;
+  const ConversationItem = memo(({ conversation, lastMessage, isActive }) => {
     const displayName = getConversationName(conversation);
     const hasUnread = conversation.unreadCount > 0;
     const lastMsgDate = new Date(conversation.updatedAt);
@@ -444,16 +500,18 @@ const Chat = () => {
       </button>
     );
   }, (prevProps, nextProps) => {
-    // Only re-render if conversation data actually changed
+    // Only re-render if conversation data or active state actually changed
     return (
       prevProps.conversation.id === nextProps.conversation.id &&
       prevProps.conversation.updatedAt === nextProps.conversation.updatedAt &&
-      prevProps.conversation.unreadCount === nextProps.conversation.unreadCount
+      prevProps.conversation.unreadCount === nextProps.conversation.unreadCount &&
+      prevProps.lastMessage === nextProps.lastMessage &&
+      prevProps.isActive === nextProps.isActive
     );
   });
 
   // Optimized MessageBubble using imported utilities
-  const MessageBubble = memo(({ message, previousMessage, nextMessage }) => {
+  const MessageBubble = memo(({ message, previousMessage, nextMessage, onRetry }) => {
     const isOwn = message.senderId === user.id;
     const sender = users.find((u) => u.id === message.senderId) || { name: message.senderName || 'Unknown' };
     const isGrouped = shouldGroupMessage(message, previousMessage);
@@ -597,6 +655,17 @@ const Chat = () => {
                   </span>
                 )}
               </div>
+            )}
+
+            {/* Retry button for failed messages */}
+            {isOwn && message._failed && onRetry && (
+              <button
+                onClick={() => onRetry(message)}
+                className="mt-2 px-3 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors flex items-center gap-1"
+              >
+                <XCircle className="w-3 h-3" />
+                Retry
+              </button>
             )}
           </div>
         </div>
@@ -750,14 +819,33 @@ const Chat = () => {
     );
   };
 
-  // Render conversation view JSX directly (no wrapper function)
-  const displayName = selectedConversation ? getConversationName(selectedConversation) : '';
-  const otherUser =
-    selectedConversation?.type === 'direct'
-      ? getOtherParticipant(selectedConversation)
-      : null;
+  // Extracted ConversationView Component
+  const ConversationView = () => {
+    if (!selectedConversation) {
+      return (
+        <div className="hidden md:flex flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-full flex items-center justify-center">
+              <MessageSquare className="w-12 h-12 text-primary-600 dark:text-primary-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              {t('chat.selectConversation')}
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 max-w-sm">
+              Choose a conversation from the list to start chatting
+            </p>
+          </div>
+        </div>
+      );
+    }
 
-  const conversationViewContent = selectedConversation ? (
+    const displayName = getConversationName(selectedConversation);
+    const otherUser =
+      selectedConversation.type === 'direct'
+        ? getOtherParticipant(selectedConversation)
+        : null;
+
+    return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900">
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
@@ -811,7 +899,13 @@ const Chat = () => {
             willChange: 'scroll-position',
           }}
         >
-          {conversationMessages.length === 0 ? (
+          {loadingConversation ? (
+            <div className="space-y-4">
+              <MessageSkeleton />
+              <MessageSkeleton />
+              <MessageSkeleton />
+            </div>
+          ) : conversationMessages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full">
               <div className="w-16 h-16 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
                 <MessageSquare className="w-10 h-10 text-gray-400 dark:text-gray-500" />
@@ -828,6 +922,7 @@ const Chat = () => {
                   message={msg}
                   previousMessage={conversationMessages[idx - 1] || null}
                   nextMessage={conversationMessages[idx + 1] || null}
+                  onRetry={handleRetryMessage}
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -843,21 +938,8 @@ const Chat = () => {
           onFileUpload={handleFileUpload}
         />
     </div>
-  ) : (
-    <div className="hidden md:flex flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="text-center">
-        <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-full flex items-center justify-center">
-          <MessageSquare className="w-12 h-12 text-primary-600 dark:text-primary-400" />
-        </div>
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-          {t('chat.selectConversation')}
-        </h3>
-        <p className="text-gray-600 dark:text-gray-400 max-w-sm">
-          Choose a conversation from the list to start chatting
-        </p>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <ErrorBoundary>
@@ -970,6 +1052,7 @@ const Chat = () => {
                 key={conversation.id}
                 conversation={conversation}
                 lastMessage={lastMessagesMap[conversation.id] || ''}
+                isActive={selectedConversation?.id === conversation.id}
               />
             ))
           )}
@@ -978,7 +1061,7 @@ const Chat = () => {
 
       {/* Conversation View */}
       <div className={`${selectedConversation ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-h-0 overflow-hidden`}>
-        {conversationViewContent}
+        <ConversationView />
       </div>
 
       {/* Modals */}

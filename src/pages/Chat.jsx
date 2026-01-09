@@ -69,10 +69,12 @@ const Chat = () => {
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
   const messagesEndRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const inputRef = useRef(null);
+  const previousMessageCountRef = useRef(0);
+  const userScrolledRef = useRef(false);
+  const scrollTimeoutRef = useRef(null);
   const attachmentMenuRef = useRef(null);
   const photoInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -86,7 +88,7 @@ const Chat = () => {
 
   const conversationMessages = useMemo(
     () => (activeConversationId ? messages[activeConversationId] || [] : []),
-    [activeConversationId, messages[activeConversationId]]
+    [activeConversationId, messages]
   );
 
   const enhancedMessages = useMemo(
@@ -99,30 +101,61 @@ const Chat = () => {
     [conversationMessages]
   );
 
-  // Smart auto-scroll - only when user is at bottom
+  // Simple, reliable auto-scroll - only for NEW messages
   useEffect(() => {
-    if (isAtBottom && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'auto' }); // Use 'auto' not 'smooth'
-    }
-  }, [conversationMessages, isAtBottom]);
+    const currentCount = conversationMessages.length;
+    const previousCount = previousMessageCountRef.current;
 
-  // Detect scroll position with IntersectionObserver
-  useEffect(() => {
-    if (!messagesEndRef.current || !scrollContainerRef.current) return;
+    // Only auto-scroll if:
+    // 1. This is the initial load (previousCount === 0)
+    // 2. OR a new message was added (currentCount > previousCount) AND user hasn't manually scrolled recently
+    if (currentCount > 0 && messagesEndRef.current && scrollContainerRef.current) {
+      const isInitialLoad = previousCount === 0;
+      const hasNewMessage = currentCount > previousCount;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsAtBottom(entry.isIntersecting);
-      },
-      {
-        root: scrollContainerRef.current,
-        threshold: 0.1,
+      if (isInitialLoad || (hasNewMessage && !userScrolledRef.current)) {
+        // Scroll to bottom instantly
+        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
       }
-    );
+    }
 
-    observer.observe(messagesEndRef.current);
-    return () => observer.disconnect();
-  }, [selectedConversation]);
+    previousMessageCountRef.current = currentCount;
+  }, [conversationMessages.length]); // Only depend on length!
+
+  // Track user scrolling to prevent auto-scroll interference
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      // Clear existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+
+      // Mark that user has scrolled
+      userScrolledRef.current = true;
+
+      // Reset after 2 seconds of no scrolling
+      scrollTimeoutRef.current = setTimeout(() => {
+        userScrolledRef.current = false;
+      }, 2000);
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Reset scroll tracking when conversation changes
+  useEffect(() => {
+    userScrolledRef.current = false;
+    previousMessageCountRef.current = 0;
+  }, [activeConversationId]);
 
   // Keep input focused when conversation is active
   useEffect(() => {

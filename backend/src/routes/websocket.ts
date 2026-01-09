@@ -7,6 +7,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { nanoid } from 'nanoid';
 import { authenticate } from '../middleware/auth';
+import { verifyToken } from '../lib/jwt';
 import type { Env, Variables } from '../types/env';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -19,13 +20,29 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
  * GET /ws/chat/:conversationId
  * Upgrade HTTP connection to WebSocket and proxy to Durable Object
  */
-app.get('/chat/:conversationId', authenticate, async (c) => {
+app.get('/chat/:conversationId', async (c) => {
   try {
-    const user = c.get('user');
     const { conversationId } = c.req.param();
 
-    if (!user) {
-      throw new HTTPException(401, { message: 'Unauthorized' });
+    // Authenticate from query param token (for WebSocket compatibility)
+    const token = c.req.query('token');
+
+    if (!token) {
+      throw new HTTPException(401, { message: 'Unauthorized: No token provided' });
+    }
+
+    // Verify JWT token
+    let user;
+    try {
+      const payload = await verifyToken(token, c.env.JWT_SECRET);
+      user = {
+        id: payload.id,
+        email: payload.email,
+        role: payload.role,
+        franchiseId: payload.franchiseId,
+      };
+    } catch (error) {
+      throw new HTTPException(401, { message: 'Unauthorized: Invalid or expired token' });
     }
 
     // Check if this is a WebSocket upgrade request

@@ -71,33 +71,32 @@ export const ChatProvider = ({ children }) => {
   const conversationsRef = useRef(conversations);
   const messagesRef = useRef(messages);
   const activeConversationIdRef = useRef(activeConversationId);
-  const conversationListPollingRef = useRef(null); // For polling conversation list updates
 
   // ============================================================================
   // WEBSOCKET FUNCTIONS (Defined first, no dependencies)
   // ============================================================================
 
   /**
-   * Connect to WebSocket for active conversation
+   * Connect to global WebSocket for all conversations
    */
-  const connectWebSocket = useCallback((conversationId) => {
-    if (!isAuthenticated || !currentUser || !conversationId) {
-      console.log('[ChatContext] Cannot connect WS: not authenticated or no conversation');
+  const connectWebSocket = useCallback(() => {
+    if (!isAuthenticated || !currentUser) {
+      console.log('[ChatContext] Cannot connect WS: not authenticated');
       return;
     }
 
     // Close existing connection if any
     if (wsRef.current) {
       console.log('[ChatContext] Closing existing WebSocket connection');
-      wsRef.current.close(1000, 'Switching conversation');
+      wsRef.current.close(1000, 'Reconnecting');
       wsRef.current = null;
     }
 
     try {
       const token = localStorage.getItem('authToken');
-      const wsUrl = `${WS_BASE_URL}/ws/chat/${conversationId}?token=${encodeURIComponent(token)}`;
+      const wsUrl = `${WS_BASE_URL}/ws/user?token=${encodeURIComponent(token)}`;
 
-      console.log(`[ChatContext] Connecting to WebSocket: ${conversationId}`);
+      console.log('[ChatContext] Connecting to global WebSocket');
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -155,13 +154,13 @@ export const ChatProvider = ({ children }) => {
         }
 
         // Attempt reconnect if not a clean close
-        if (event.code !== 1000 && activeConversationIdRef.current) {
+        if (event.code !== 1000 && isAuthenticated) {
           const delay = WS_RECONNECT_DELAYS[Math.min(wsReconnectAttemptsRef.current, WS_RECONNECT_DELAYS.length - 1)];
           console.log(`[ChatContext] Reconnecting in ${delay}ms (attempt ${wsReconnectAttemptsRef.current + 1})`);
 
           wsReconnectTimeoutRef.current = setTimeout(() => {
             wsReconnectAttemptsRef.current++;
-            connectWebSocket(activeConversationIdRef.current);
+            connectWebSocket();
           }, delay);
         }
       };
@@ -476,50 +475,54 @@ export const ChatProvider = ({ children }) => {
     return typingUsers[conversationId] || [];
   }, [typingUsers]);
 
-  const loadConversations = useCallback(async (silent = false) => {
-    try {
-      if (!silent) {
-        setLoading(true);
+  // Utility: Check if conversations have actually changed
+  const conversationsEqual = useCallback((arr1, arr2) => {
+    if (!arr1 || !arr2) return arr1 === arr2;
+    if (arr1.length !== arr2.length) return false;
+
+    for (let i = 0; i < arr1.length; i++) {
+      const c1 = arr1[i];
+      const c2 = arr2[i];
+
+      if (c1.id !== c2.id ||
+          c1.lastMessageAt !== c2.lastMessageAt ||
+          c1.unreadCount !== c2.unreadCount ||
+          c1.updatedAt !== c2.updatedAt) {
+        return false;
       }
+    }
+    return true;
+  }, []);
+
+  const loadConversations = useCallback(async () => {
+    try {
+      setLoading(true);
       const response = await api.conversations.list();
       const convList = response.data.data || [];
+      console.log('[ChatContext] Loaded conversations:', convList);
 
-      if (!silent) {
-        console.log('[ChatContext] Loaded conversations:', convList);
-      }
+      // ONLY update if data actually changed (prevents unnecessary re-renders)
+      setConversations(prev => {
+        if (conversationsEqual(prev, convList)) {
+          console.debug('[ChatContext] Conversations unchanged, skipping update');
+          return prev; // Same reference = no re-render
+        }
+        return convList;
+      });
 
-      setConversations(convList);
-
-      // Load messages for each conversation (initial load only)
-      if (!silent) {
-        for (const conv of convList) {
-          if (conv.lastMessageId) {
-            await loadMessages(conv.id);
-          }
+      // Load messages for each conversation (initial load)
+      for (const conv of convList) {
+        if (conv.lastMessageId) {
+          await loadMessages(conv.id);
         }
       }
     } catch (error) {
       console.error('Failed to load conversations:', error);
-      if (!silent) {
-        toast.error('Failed to load conversations. Please refresh.');
-      }
+      toast.error('Failed to load conversations. Please refresh.');
     } finally {
-      if (!silent) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
-  }, [loadMessages]);
-
-  // Poll conversation list for updates (lightweight, only metadata)
-  const pollConversationList = useCallback(async () => {
-    if (!isAuthenticated) return;
-
-    try {
-      await loadConversations(true); // Silent update
-    } catch (error) {
-      console.error('[ChatContext] Conversation list polling error:', error);
-    }
-  }, [isAuthenticated, loadConversations]);
+  }, [loadMessages, conversationsEqual]);
 
   const loadOpenChat = useCallback(async () => {
     try {
@@ -581,9 +584,10 @@ export const ChatProvider = ({ children }) => {
         [conversationId]: [...(prev[conversationId] || []), tempMessage],
       }));
 
-      // Send via WebSocket
+      // Send via global WebSocket with conversationId
       sendWebSocketMessage({
         type: 'message',
+        conversationId, // Include conversationId for global WebSocket
         payload: {
           content,
           messageType,
@@ -613,6 +617,7 @@ export const ChatProvider = ({ children }) => {
   const sendTypingIndicator = useCallback((conversationId, isTyping) => {
     sendWebSocketMessage({
       type: 'typing',
+      conversationId, // Include conversationId for global WebSocket
       payload: { isTyping },
     });
   }, [sendWebSocketMessage]);
@@ -645,46 +650,20 @@ export const ChatProvider = ({ children }) => {
     loadOpenChat();
   }, [isAuthenticated, loadConversations, loadOpenChat]);
 
-  // Connect/disconnect WebSocket when active conversation changes
+  // Connect global WebSocket once when authenticated
   useEffect(() => {
-    if (!isAuthenticated || !activeConversationId) {
+    if (!isAuthenticated || !currentUser) {
       disconnectWebSocket();
       return;
     }
 
-    connectWebSocket(activeConversationId);
+    // Connect to global user WebSocket (receives updates from ALL conversations)
+    connectWebSocket();
 
     return () => {
       disconnectWebSocket();
     };
-  }, [isAuthenticated, activeConversationId, connectWebSocket, disconnectWebSocket]);
-
-  // Poll conversation list for updates (catches messages in non-active conversations)
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    // Start polling every 10 seconds
-    conversationListPollingRef.current = setInterval(() => {
-      pollConversationList();
-    }, 10000);
-
-    return () => {
-      if (conversationListPollingRef.current) {
-        clearInterval(conversationListPollingRef.current);
-        conversationListPollingRef.current = null;
-      }
-    };
-  }, [isAuthenticated, pollConversationList]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      disconnectWebSocket();
-      if (conversationListPollingRef.current) {
-        clearInterval(conversationListPollingRef.current);
-      }
-    };
-  }, [disconnectWebSocket]);
+  }, [isAuthenticated, currentUser, connectWebSocket, disconnectWebSocket]);
 
   // ============================================================================
   // CONTEXT VALUE (Memoized)

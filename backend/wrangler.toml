@@ -41,9 +41,18 @@ name = "CHAT_ROOMS"
 class_name = "ChatRoomDO"
 script_name = "cgiworkflo-api"
 
+[[durable_objects.bindings]]
+name = "USER_CONNECTIONS"
+class_name = "UserConnectionDO"
+script_name = "cgiworkflo-api"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["ChatRoomDO"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["UserConnectionDO"]
 
 # Secrets (set via `wrangler secret put <KEY>`)
 # Required secrets:
@@ -71,6 +80,11 @@ id = "3d9b48b2041648e39e40820e12eb6797"
 [[env.development.durable_objects.bindings]]
 name = "CHAT_ROOMS"
 class_name = "ChatRoomDO"
+script_name = "cgiworkflo-api-dev"
+
+[[env.development.durable_objects.bindings]]
+name = "USER_CONNECTIONS"
+class_name = "UserConnectionDO"
 script_name = "cgiworkflo-api-dev"
 
 # Staging environment

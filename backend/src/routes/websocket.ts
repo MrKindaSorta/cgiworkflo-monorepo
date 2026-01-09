@@ -13,12 +13,74 @@ import type { Env, Variables } from '../types/env';
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // ============================================================================
-// WEBSOCKET UPGRADE ROUTE
+// WEBSOCKET UPGRADE ROUTES
 // ============================================================================
+
+/**
+ * GET /ws/user
+ * Global WebSocket connection for user - receives updates from ALL conversations
+ */
+app.get('/user', async (c) => {
+  try {
+    // Authenticate from query param token (WebSocket can't use headers)
+    const token = c.req.query('token');
+
+    if (!token) {
+      throw new HTTPException(401, { message: 'Unauthorized: No token provided' });
+    }
+
+    // Verify JWT token
+    let user;
+    try {
+      const payload = await verifyToken(token, c.env.JWT_SECRET);
+      user = {
+        id: payload.id,
+        email: payload.email,
+        role: payload.role,
+      };
+    } catch (error) {
+      throw new HTTPException(401, { message: 'Unauthorized: Invalid or expired token' });
+    }
+
+    // Get user's name from database
+    const userRecord = await c.env.DB.prepare(
+      `SELECT name FROM users WHERE id = ?`
+    )
+      .bind(user.id)
+      .first();
+
+    const userName = (userRecord?.name as string) || 'Unknown User';
+
+    // Check if this is a WebSocket upgrade request
+    const upgradeHeader = c.req.header('Upgrade');
+    if (upgradeHeader !== 'websocket') {
+      throw new HTTPException(426, { message: 'Expected WebSocket upgrade' });
+    }
+
+    // Get UserConnectionDO for this user
+    const doId = c.env.USER_CONNECTIONS.idFromName(user.id);
+    const doStub = c.env.USER_CONNECTIONS.get(doId);
+
+    // Create URL with user info for the DO
+    const doUrl = new URL(c.req.url);
+    doUrl.searchParams.set('userId', user.id);
+    doUrl.searchParams.set('userName', userName);
+
+    // Forward the request to the Durable Object
+    const doResponse = await doStub.fetch(doUrl.toString(), c.req.raw);
+
+    return doResponse;
+  } catch (error: any) {
+    if (error instanceof HTTPException) throw error;
+    console.error('Error upgrading to WebSocket:', error);
+    throw new HTTPException(500, { message: 'Failed to establish WebSocket connection' });
+  }
+});
 
 /**
  * GET /ws/chat/:conversationId
  * Upgrade HTTP connection to WebSocket and proxy to Durable Object
+ * NOTE: This route is deprecated - use /ws/user for global connection
  */
 app.get('/chat/:conversationId', async (c) => {
   try {

@@ -26,6 +26,7 @@ export interface Env {
   PHOTOS: R2Bucket;      // R2 bucket for photos/attachments
   CACHE: KVNamespace;    // KV namespace for caching and rate limiting
   CHAT_ROOMS: DurableObjectNamespace; // Durable Object namespace for chat rooms
+  USER_CONNECTIONS: DurableObjectNamespace; // Durable Object namespace for user connections
 }
 
 /**

@@ -169,3 +169,4 @@ export default app;
 
 // Export Durable Objects
 export { ChatRoomDO } from './durable-objects/ChatRoomDO';
+export { UserConnectionDO } from './durable-objects/UserConnectionDO';

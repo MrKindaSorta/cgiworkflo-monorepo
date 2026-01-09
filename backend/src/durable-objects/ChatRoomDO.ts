@@ -46,10 +46,20 @@ export class ChatRoomDO {
   }
 
   /**
-   * Handle WebSocket upgrade and new connections
+   * Handle WebSocket upgrade and internal requests
    */
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+
+    // Handle internal message request from UserConnectionDO
+    if (url.pathname === '/message' && request.method === 'POST') {
+      return await this.handleInternalMessage(request);
+    }
+
+    // Handle internal typing request from UserConnectionDO
+    if (url.pathname === '/typing' && request.method === 'POST') {
+      return await this.handleInternalTyping(request);
+    }
 
     // Check if this is a WebSocket upgrade request
     if (request.headers.get('Upgrade') !== 'websocket') {
@@ -120,6 +130,87 @@ export class ChatRoomDO {
       status: 101,
       webSocket: client,
     });
+  }
+
+  /**
+   * Handle internal message request from UserConnectionDO
+   */
+  private async handleInternalMessage(request: Request): Promise<Response> {
+    try {
+      const data = await request.json() as any;
+      const { userId, userName, conversationId, content, messageType, metadata, tempId } = data;
+
+      // Set conversation ID if not set
+      if (!this.conversationId) {
+        this.conversationId = conversationId;
+      }
+
+      // Validate message
+      if (!content || content.trim().length === 0) {
+        return new Response('Message content cannot be empty', { status: 400 });
+      }
+
+      // Save message to database
+      const messageId = await this.saveMessageToDB({
+        conversationId: this.conversationId,
+        senderId: userId,
+        content,
+        messageType: messageType || 'text',
+        metadata,
+      });
+
+      // Prepare broadcast payload
+      const broadcastPayload = {
+        id: messageId,
+        conversationId: this.conversationId,
+        senderId: userId,
+        senderName: userName,
+        content,
+        messageType: messageType || 'text',
+        metadata,
+        timestamp: new Date().toISOString(),
+        tempId,
+      };
+
+      // Notify all participants via their UserConnectionDO
+      await this.notifyParticipants('message', broadcastPayload);
+
+      console.log(`[ChatRoomDO] Message ${messageId} sent by ${userName} via UserConnectionDO`);
+
+      return new Response('OK', { status: 200 });
+    } catch (error) {
+      console.error('[ChatRoomDO] Error handling internal message:', error);
+      return new Response(error instanceof Error ? error.message : 'Internal error', { status: 500 });
+    }
+  }
+
+  /**
+   * Handle internal typing indicator from UserConnectionDO
+   */
+  private async handleInternalTyping(request: Request): Promise<Response> {
+    try {
+      const data = await request.json() as any;
+      const { userId, userName, isTyping } = data;
+
+      // Notify all participants except sender
+      const participants = await this.getConversationParticipants();
+      const otherParticipants = participants.filter(id => id !== userId);
+
+      await Promise.allSettled(
+        otherParticipants.map(participantId =>
+          this.notifyParticipant(participantId, 'typing', {
+            userId,
+            userName,
+            isTyping,
+          })
+        )
+      );
+
+      return new Response('OK', { status: 200 });
+    } catch (error) {
+      console.error('[ChatRoomDO] Error handling internal typing:', error);
+      return new Response('Internal error', { status: 500 });
+    }
   }
 
   /**
@@ -283,6 +374,9 @@ export class ChatRoomDO {
         type: 'message',
         payload: broadcastPayload,
       });
+
+      // Notify all participants via their UserConnectionDO (for users not in active WebSocket)
+      await this.notifyParticipants('message', broadcastPayload);
 
       // Clear typing indicator for sender
       this.clearTypingIndicator(connection.userId);
@@ -618,6 +712,105 @@ export class ChatRoomDO {
         this.removeConnectionFromDB(connectionId);
       }
     }
+  }
+
+  // ============================================================================
+  // USER CONNECTION NOTIFICATIONS
+  // ============================================================================
+
+  /**
+   * Notify all participants via their UserConnectionDO
+   */
+  private async notifyParticipants(type: string, payload: any): Promise<void> {
+    try {
+      // Get all participants for this conversation
+      const participants = await this.getConversationParticipants();
+
+      if (participants.length === 0) {
+        return;
+      }
+
+      // For large groups (>10 participants), use batching
+      if (participants.length > 10) {
+        await this.notifyParticipantsBatched(participants, type, payload);
+      } else {
+        // Small groups: notify individually
+        await Promise.allSettled(
+          participants.map(participantId =>
+            this.notifyParticipant(participantId, type, payload)
+          )
+        );
+      }
+    } catch (error) {
+      console.error('[ChatRoomDO] Error notifying participants:', error);
+    }
+  }
+
+  /**
+   * Get all participants for this conversation
+   */
+  private async getConversationParticipants(): Promise<string[]> {
+    try {
+      const result = await this.env.DB.prepare(
+        `SELECT user_id FROM conversation_participants
+         WHERE conversation_id = ? AND left_at IS NULL`
+      )
+        .bind(this.conversationId)
+        .all();
+
+      return (result.results || []).map((row: any) => row.user_id);
+    } catch (error) {
+      console.error('[ChatRoomDO] Error getting participants:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Notify a single participant via their UserConnectionDO
+   */
+  private async notifyParticipant(userId: string, type: string, payload: any): Promise<void> {
+    try {
+      const userDOId = this.env.USER_CONNECTIONS.idFromName(userId);
+      const userDOStub = this.env.USER_CONNECTIONS.get(userDOId);
+
+      await userDOStub.fetch(
+        new Request('http://internal/notify', {
+          method: 'POST',
+          body: JSON.stringify({
+            type,
+            conversationId: this.conversationId,
+            payload,
+          }),
+        })
+      );
+    } catch (error) {
+      // Log but don't fail - user might be offline
+      console.debug(`[ChatRoomDO] Failed to notify user ${userId}:`, error);
+    }
+  }
+
+  /**
+   * Notify participants in batches (for large groups)
+   */
+  private async notifyParticipantsBatched(participants: string[], type: string, payload: any): Promise<void> {
+    // Batch into groups of 10
+    const batches: string[][] = [];
+    for (let i = 0; i < participants.length; i += 10) {
+      batches.push(participants.slice(i, i + 10));
+    }
+
+    console.log(`[ChatRoomDO] Notifying ${participants.length} participants in ${batches.length} batches`);
+
+    // Process all batches in parallel
+    await Promise.allSettled(
+      batches.map(batch =>
+        Promise.allSettled(
+          batch.map(participantId =>
+            this.notifyParticipant(participantId, type, payload)
+          )
+        )
+      )
+    );
   }
 
   /**

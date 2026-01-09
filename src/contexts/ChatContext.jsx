@@ -28,7 +28,8 @@ const isMobile = () => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 };
 
-const WS_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/^https?:/, 'wss:').replace(/\/api$/, '') || 'wss://cgiworkflo-api.joshua-r-klimek.workers.dev';
+// FIXED: WebSocket URL includes /api prefix to match backend route registration
+const WS_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/^https?:/, 'wss:') || 'wss://cgiworkflo-api.joshua-r-klimek.workers.dev/api';
 const WS_RECONNECT_DELAYS = [1000, 2000, 5000, 10000, 30000, 60000]; // Exponential backoff (added 60s for mobile)
 const WS_PING_INTERVAL = isMobile() ? 15000 : 30000; // 15s on mobile, 30s desktop
 const WS_MAX_QUEUE_SIZE = 100; // Max queued messages when offline

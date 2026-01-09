@@ -89,11 +89,11 @@ app.route('/api/conversations', conversationRoutes);
 // Presence tracking routes (protected)
 app.route('/api/presence', presenceRoutes);
 
-// Chat sync route for efficient polling (protected) - DEPRECATED, use WebSockets
+// Chat sync route for efficient polling (protected)
 app.route('/api/chat', chatSyncRoutes);
 
 // WebSocket routes for real-time chat (protected)
-app.route('/ws', websocketRoutes);
+app.route('/api/ws', websocketRoutes);
 
 // File upload routes (protected)
 app.route('/api/uploads', uploadsRoutes);

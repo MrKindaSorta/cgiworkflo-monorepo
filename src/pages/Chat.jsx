@@ -143,9 +143,10 @@ const Chat = () => {
 
   // CRITICAL: Only recalculate when THIS conversation's messages change
   // Memoized to prevent unnecessary re-renders when messages object reference changes
+  // FIX: Only depend on THIS conversation's messages, not the entire messages object
   const allConversationMessages = useMemo(
     () => (activeConversationId ? messages[activeConversationId] || [] : []),
-    [messages, activeConversationId]
+    [messages[activeConversationId], activeConversationId]
   );
 
   // Paginated messages: show only last N messages for performance
@@ -239,12 +240,13 @@ const Chat = () => {
   }, [conversationMessages, scrollToBottom, isAtBottom, user?.id]);
 
   // Scroll to bottom when conversation changes (after DOM update)
+  // FIX: Use actual length, not boolean (> 0), so effect triggers when messages load
   useEffect(() => {
     if (activeConversationId && conversationMessages.length > 0) {
       shouldScrollRef.current = true; // Set flag to scroll on next layout effect
       lastMessageCountRef.current = conversationMessages.length;
     }
-  }, [activeConversationId, conversationMessages.length > 0]);
+  }, [activeConversationId, conversationMessages.length]);
 
   // Handle mobile keyboard visibility changes (viewport resize)
   useEffect(() => {
@@ -294,6 +296,38 @@ const Chat = () => {
       clearTimeout(scrollTimeout);
     };
   }, []);
+
+  // Preserve scroll position during polling-triggered re-renders
+  // This ensures that if polling causes a re-render, scroll position is maintained
+  const scrollPositionRef = useRef(0);
+
+  useLayoutEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer || conversationMessages.length === 0) return;
+
+    // Save scroll position before re-render
+    const savedPosition = scrollContainer.scrollTop;
+    scrollPositionRef.current = savedPosition;
+
+    // After re-render completes, restore scroll if user wasn't actively scrolling
+    // and we're not supposed to auto-scroll
+    return () => {
+      if (scrollContainer && !shouldScrollRef.current && !isUserScrollingRef.current) {
+        // Check if we're not at bottom (user is reading history)
+        const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+        const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+
+        // If user is reading history (not at bottom), preserve their position
+        if (!isNearBottom && scrollPositionRef.current > 0) {
+          requestAnimationFrame(() => {
+            if (scrollContainer) {
+              scrollContainer.scrollTop = scrollPositionRef.current;
+            }
+          });
+        }
+      }
+    };
+  }, [conversationMessages]);
 
   // Reset message display limit when conversation changes
   useEffect(() => {

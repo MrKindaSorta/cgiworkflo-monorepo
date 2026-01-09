@@ -12,6 +12,11 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload }) 
   const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  // Debug: Track component renders
+  useEffect(() => {
+    console.debug('[MessageInput] Component rendered/mounted');
+  });
+
   // Click-away and ESC key detection for attachment menu
   useEffect(() => {
     if (!showAttachmentMenu) return;
@@ -250,6 +255,15 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload }) 
         }}
       />
     </form>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison - only re-render if props actually changed
+  // This prevents re-renders when parent updates but props remain functionally the same
+  return (
+    prevProps.sending === nextProps.sending &&
+    prevProps.uploading === nextProps.uploading &&
+    prevProps.onSendMessage === nextProps.onSendMessage &&
+    prevProps.onFileUpload === nextProps.onFileUpload
   );
 });
 

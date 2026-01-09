@@ -377,6 +377,9 @@ export const ChatProvider = ({ children }) => {
           }
 
           // CRITICAL: Only return new object if something actually changed
+          if (!hasChanges && Object.keys(data.messages).length > 0) {
+            console.debug('[ChatContext] No message changes detected, returning same reference');
+          }
           return hasChanges ? updated : prev;
           });
         });

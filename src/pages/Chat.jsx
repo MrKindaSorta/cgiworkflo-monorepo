@@ -1091,15 +1091,11 @@ const Chat = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-2">
-            {syncError && (
-              <button
-                onClick={retrySync}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
-                aria-label="Retry connection"
-              >
+            {!wsConnected && wsError && (
+              <div className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-orange-600 dark:text-orange-400">
                 <AlertCircle className="w-4 h-4" />
-                Retry
-              </button>
+                Reconnecting...
+              </div>
             )}
             <button
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
@@ -1227,19 +1223,13 @@ const Chat = () => {
             </button>
           </div>
 
-          {/* Sync Error Banner */}
-          {syncError && (
+          {/* WebSocket Connection Status Banner */}
+          {!wsConnected && wsError && (
             <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-orange-600 dark:text-orange-400 flex-shrink-0" />
               <p className="text-sm text-orange-700 dark:text-orange-300 flex-1">
-                {syncError}
+                Connection interrupted. Reconnecting automatically...
               </p>
-              <button
-                onClick={retrySync}
-                className="text-sm font-medium text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300"
-              >
-                Retry
-              </button>
             </div>
           )}
 

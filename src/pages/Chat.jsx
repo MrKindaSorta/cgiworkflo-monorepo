@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
 import { api } from '../lib/api-client';
 import ErrorBoundary from '../components/ErrorBoundary';
+import MessageInput from './Chat/MessageInput';
 import {
   MessageSquare,
   Users,
@@ -63,22 +64,15 @@ const Chat = () => {
   } = useChat();
 
   const [activeTab, setActiveTab] = useState('direct');
-  const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewChatModal, setShowNewChatModal] = useState(false);
-  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
   const messagesEndRef = useRef(null);
   const scrollContainerRef = useRef(null);
-  const inputRef = useRef(null);
   const previousMessageCountRef = useRef(0);
   const userScrolledRef = useRef(false);
   const scrollTimeoutRef = useRef(null);
-  const attachmentMenuRef = useRef(null);
-  const photoInputRef = useRef(null);
-  const cameraInputRef = useRef(null);
-  const fileInputRef = useRef(null);
 
   // Memoize to prevent re-renders when conversations array updates
   const selectedConversation = useMemo(
@@ -157,55 +151,6 @@ const Chat = () => {
     previousMessageCountRef.current = 0;
   }, [activeConversationId]);
 
-  // Keep input focused when conversation is active
-  useEffect(() => {
-    if (selectedConversation && inputRef.current && document.activeElement !== inputRef.current) {
-      // Only focus if something else has focus (not during typing)
-      const activeElement = document.activeElement;
-      if (!activeElement || activeElement.tagName !== 'INPUT' || activeElement.type !== 'text') {
-        inputRef.current.focus();
-      }
-    }
-  }, [selectedConversation]);
-
-  // Prevent focus loss by maintaining focus on the input
-  const lastFocusedRef = useRef(false);
-  useEffect(() => {
-    if (!inputRef.current) return;
-
-    const handleFocus = () => {
-      lastFocusedRef.current = true;
-    };
-
-    const handleBlur = () => {
-      lastFocusedRef.current = false;
-    };
-
-    const input = inputRef.current;
-    input.addEventListener('focus', handleFocus);
-    input.addEventListener('blur', handleBlur);
-
-    return () => {
-      input.removeEventListener('focus', handleFocus);
-      input.removeEventListener('blur', handleBlur);
-    };
-  }, []);
-
-  // Close attachment menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (attachmentMenuRef.current && !attachmentMenuRef.current.contains(event.target)) {
-        setShowAttachmentMenu(false);
-      }
-    };
-
-    if (showAttachmentMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showAttachmentMenu]);
 
   const getOtherParticipant = (conversation) => {
     if (conversation.type !== 'direct') return null;
@@ -274,24 +219,21 @@ const Chat = () => {
     return timeDiff < 60000;
   };
 
-  const handleSendMessage = useCallback(async (e) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !activeConversationId || sending) return;
+  const handleSendMessage = useCallback(async (content) => {
+    if (!content.trim() || !activeConversationId || sending) return;
 
     try {
-      await sendMessage(activeConversationId, newMessage.trim());
-      setNewMessage('');
+      await sendMessage(activeConversationId, content.trim());
     } catch (error) {
       console.error('Failed to send message:', error);
       toast.error('Failed to send message. Please try again.');
     }
-  }, [newMessage, activeConversationId, sending, sendMessage]);
+  }, [activeConversationId, sending, sendMessage]);
 
   const handleFileUpload = useCallback(async (files, type = 'file') => {
     if (!files || files.length === 0 || !activeConversationId || uploading) return;
 
     setUploading(true);
-    setShowAttachmentMenu(false);
 
     try {
       const fileCount = files.length;
@@ -602,6 +544,16 @@ const Chat = () => {
         </div>
       </>
     );
+  }, (prevProps, nextProps) => {
+    // Custom comparison - only re-render if message content actually changed
+    return (
+      prevProps.message.id === nextProps.message.id &&
+      prevProps.message.content === nextProps.message.content &&
+      prevProps.message._isPending === nextProps.message._isPending &&
+      prevProps.message._failed === nextProps.message._failed &&
+      prevProps.previousMessage?.id === nextProps.previousMessage?.id &&
+      prevProps.nextMessage?.id === nextProps.nextMessage?.id
+    );
   });
 
   // New Chat Modal Component
@@ -666,63 +618,6 @@ const Chat = () => {
             </div>
           </div>
         </div>
-      </div>
-    );
-  };
-
-  // Attachment Menu Component
-  const AttachmentMenu = () => {
-    if (!showAttachmentMenu) return null;
-
-    const attachmentOptions = [
-      {
-        icon: Image,
-        label: 'Photo',
-        color: 'from-blue-500 to-blue-600',
-        action: () => photoInputRef.current?.click()
-      },
-      {
-        icon: Camera,
-        label: 'Camera',
-        color: 'from-green-500 to-green-600',
-        action: () => cameraInputRef.current?.click()
-      },
-      {
-        icon: Paperclip,
-        label: 'File',
-        color: 'from-orange-500 to-orange-600',
-        action: () => fileInputRef.current?.click()
-      },
-    ];
-
-    return (
-      <div
-        ref={attachmentMenuRef}
-        className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-2 min-w-[200px]"
-      >
-        {attachmentOptions.map((option) => (
-          <button
-            key={option.label}
-            onClick={() => {
-              option.action();
-              setShowAttachmentMenu(false);
-            }}
-            disabled={uploading}
-            className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div
-              className={`w-10 h-10 rounded-full bg-gradient-to-br ${option.color} text-white flex items-center justify-center shadow-md`}
-            >
-              <option.icon className="w-5 h-5" />
-            </div>
-            <span className="font-medium text-gray-900 dark:text-gray-100">{option.label}</span>
-          </button>
-        ))}
-        {uploading && (
-          <div className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 text-center">
-            Uploading...
-          </div>
-        )}
       </div>
     );
   };
@@ -861,83 +756,13 @@ const Chat = () => {
           )}
         </div>
 
-        {/* Message Input */}
-        <form
-          onSubmit={handleSendMessage}
-          className="flex-shrink-0 px-4 md:px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
-        >
-          <div className="flex items-end gap-3 relative">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
-                className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors flex-shrink-0"
-              >
-                <Plus className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-              </button>
-              <AttachmentMenu />
-            </div>
-            <div className="flex-1 relative">
-              <input
-                ref={inputRef}
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder={t('chat.typeMessage')}
-                aria-label="Message input"
-                aria-describedby={sending ? 'sending-status' : undefined}
-                className="w-full px-5 py-3.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-              />
-              {sending && <span id="sending-status" className="sr-only">Sending message</span>}
-            </div>
-            <button
-              type="submit"
-              disabled={!newMessage.trim()}
-              className="p-3.5 bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-xl hover:from-primary-600 hover:to-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-primary-500/25 flex-shrink-0"
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Hidden file inputs */}
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files) {
-                handleFileUpload(Array.from(e.target.files), 'image');
-                e.target.value = '';
-              }
-            }}
-          />
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files) {
-                handleFileUpload(Array.from(e.target.files), 'image');
-                e.target.value = '';
-              }
-            }}
-          />
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files) {
-                handleFileUpload(Array.from(e.target.files), 'file');
-                e.target.value = '';
-              }
-            }}
-          />
-        </form>
+        {/* Message Input - Isolated Component */}
+        <MessageInput
+          onSendMessage={handleSendMessage}
+          sending={sending}
+          uploading={uploading}
+          onFileUpload={handleFileUpload}
+        />
     </div>
   ) : (
     <div className="hidden md:flex flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900">

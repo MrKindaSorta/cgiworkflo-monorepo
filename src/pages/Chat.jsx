@@ -122,6 +122,10 @@ const Chat = () => {
   const messageQueueRef = useRef([]);
   const processingQueueRef = useRef(false);
 
+  // Stable refs for callback dependencies (prevent MessageInput remounting)
+  const sendMessageRef = useRef(sendMessage);
+  const activeConversationIdRef = useRef(activeConversationId);
+
   // Memoize to prevent re-renders when conversations array updates
   const selectedConversation = useMemo(
     () => conversations.find((c) => c.id === activeConversationId),
@@ -145,6 +149,15 @@ const Chat = () => {
   }, [allConversationMessages, messageDisplayLimit]);
 
   const hasMoreMessages = allConversationMessages.length > messageDisplayLimit;
+
+  // Keep refs in sync with latest values
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  }, [sendMessage]);
+
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
 
   // Disable browser's automatic scroll restoration
   useEffect(() => {
@@ -193,22 +206,22 @@ const Chat = () => {
     };
   }, []);
 
-  // Always scroll to bottom when conversation changes
+  // Reset message display limit when conversation changes
   useEffect(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
-    }
-
-    // Reset message display limit when switching conversations
     setMessageDisplayLimit(50);
-
-    // Cleanup: Clear ref on unmount to prevent stale references
-    return () => {
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current = null;
-      }
-    };
   }, [activeConversationId]);
+
+  // Scroll to bottom when conversation changes (after messages render)
+  useEffect(() => {
+    if (scrollContainerRef.current && conversationMessages.length > 0) {
+      // Use requestAnimationFrame to ensure DOM is fully painted
+      requestAnimationFrame(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+        }
+      });
+    }
+  }, [activeConversationId, conversationMessages.length > 0]);
 
   // Debounced markAsRead when conversation changes
   useEffect(() => {
@@ -294,6 +307,7 @@ const Chat = () => {
   }, [conversations, activeTab, searchQuery, getConversationName]);
 
   // Process message queue to prevent rapid duplicates
+  // STABLE: Uses refs to prevent MessageInput remounting
   const processMessageQueue = useCallback(async () => {
     if (processingQueueRef.current || messageQueueRef.current.length === 0) return;
 
@@ -303,7 +317,7 @@ const Chat = () => {
       const { conversationId, content } = messageQueueRef.current[0];
 
       try {
-        await sendMessage(conversationId, content);
+        await sendMessageRef.current(conversationId, content); // Use ref instead of direct call
         messageQueueRef.current.shift(); // Remove successfully sent message
       } catch (error) {
         console.error('Failed to send message:', error);
@@ -313,14 +327,15 @@ const Chat = () => {
     }
 
     processingQueueRef.current = false;
-  }, [sendMessage]);
+  }, []); // Empty deps - stable callback!
 
+  // STABLE: Uses refs to prevent MessageInput remounting
   const handleSendMessage = useCallback(async (content) => {
-    if (!content.trim() || !activeConversationId) return;
+    if (!content.trim() || !activeConversationIdRef.current) return; // Use ref
 
     // Add to queue
     messageQueueRef.current.push({
-      conversationId: activeConversationId,
+      conversationId: activeConversationIdRef.current, // Use ref
       content: content.trim(),
     });
 
@@ -333,24 +348,24 @@ const Chat = () => {
         scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
       }
     }, 100);
-  }, [activeConversationId, processMessageQueue]);
+  }, [processMessageQueue]); // Only depends on processMessageQueue (which is now stable)
 
-  // Retry failed message
+  // Retry failed message - STABLE
   const handleRetryMessage = useCallback(async (message) => {
     if (!message._failed || !message.content) return;
 
     // Add to queue for retry
     messageQueueRef.current.push({
-      conversationId: message.conversationId || activeConversationId,
+      conversationId: message.conversationId || activeConversationIdRef.current, // Use ref
       content: message.content,
     });
 
     // Process queue
     processMessageQueue();
-  }, [activeConversationId, processMessageQueue]);
+  }, [processMessageQueue]);
 
   const handleFileUpload = useCallback(async (files, type = 'file') => {
-    if (!files || files.length === 0 || !activeConversationId || uploading) return;
+    if (!files || files.length === 0 || !activeConversationIdRef.current || uploading) return; // Use ref
 
     // Cancel any previous uploads
     if (uploadAbortControllerRef.current) {
@@ -362,7 +377,7 @@ const Chat = () => {
     uploadAbortControllerRef.current = abortController;
 
     // Capture conversationId at upload start to prevent race condition
-    const targetConversationId = activeConversationId;
+    const targetConversationId = activeConversationIdRef.current; // Use ref
 
     setUploading(true);
 
@@ -388,7 +403,7 @@ const Chat = () => {
         });
 
         const content = type === 'image' ? `📷 ${filename}` : `📎 ${filename}`;
-        await sendMessage(targetConversationId, content, type === 'image' ? 'image' : 'file', metadata);
+        await sendMessageRef.current(targetConversationId, content, type === 'image' ? 'image' : 'file', metadata); // Use ref
       }
 
       // Show success message
@@ -410,7 +425,7 @@ const Chat = () => {
         uploadAbortControllerRef.current = null;
       }
     }
-  }, [activeConversationId, uploading, sendMessage]);
+  }, [uploading]); // Removed volatile dependencies - using refs instead
 
   // Cancel uploads when conversation changes
   useEffect(() => {

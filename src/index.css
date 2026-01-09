@@ -60,7 +60,7 @@
     overscroll-behavior: contain;
     /* GPU acceleration for smooth scrolling */
     transform: translateZ(0);
-    will-change: scroll-position;
+    /* Removed will-change: scroll-position - was causing scroll resets during polling updates */
   }
 
   /* Safe area support for notched devices */

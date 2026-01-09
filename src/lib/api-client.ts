@@ -89,6 +89,11 @@ export const api = {
     logout: () => apiClient.post('/auth/logout'),
   },
 
+  // WebSocket Authentication
+  websocket: {
+    getAuthCode: () => apiClient.post('/ws/auth-code'),
+  },
+
   // Custom Forms
   customForms: {
     getActive: () => apiClient.get('/custom-forms/active'),
@@ -174,12 +179,13 @@ export const api = {
 
   // File Uploads
   uploads: {
-    uploadFile: (file: File, type: string = 'file') => {
+    uploadFile: (file: File, type: string = 'file', config?: any) => {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('type', type);
       return apiClient.post('/uploads', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        ...config, // ADDED: Allow passing onUploadProgress and other axios config
       });
     },
   },

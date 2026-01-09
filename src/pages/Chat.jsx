@@ -28,6 +28,40 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
+// ADDED: Connection Status Indicator Component
+const ConnectionStatus = memo(({ wsConnected, wsError, isPolling }) => {
+  if (wsConnected && !isPolling) {
+    return null; // All good - don't show anything
+  }
+
+  return (
+    <div
+      className={`px-4 py-2.5 text-sm text-center font-medium flex items-center justify-center gap-2 ${
+        isPolling
+          ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 border-b border-yellow-200 dark:border-yellow-800'
+          : 'bg-orange-50 dark:bg-orange-900/20 text-orange-800 dark:text-orange-200 border-b border-orange-200 dark:border-orange-800'
+      }`}
+    >
+      {isPolling ? (
+        <>
+          <Clock className="w-4 h-4" />
+          Using fallback mode - limited real-time features
+        </>
+      ) : wsError ? (
+        <>
+          <XCircle className="w-4 h-4 animate-pulse" />
+          Reconnecting... {wsError}
+        </>
+      ) : (
+        <>
+          <AlertCircle className="w-4 h-4 animate-pulse" />
+          Connecting...
+        </>
+      )}
+    </div>
+  );
+});
+
 // Loading skeleton components
 const ConversationSkeleton = () => (
   <div className="w-full p-3 md:p-4 flex items-start gap-3 animate-pulse border-b border-gray-200 dark:border-gray-700">
@@ -109,6 +143,7 @@ const Chat = () => {
     sending,
     wsConnected,
     wsError,
+    isPolling, // ADDED: Get polling state for connection status indicator
     getTypingUsers,
     sendTypingIndicator,
   } = useChat();
@@ -117,6 +152,7 @@ const Chat = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0); // ADDED: Upload progress percentage
   const [lightboxImage, setLightboxImage] = useState(null);
   const [loadingConversation, setLoadingConversation] = useState(false);
   const [messageDisplayLimit, setMessageDisplayLimit] = useState(50); // Pagination: show last 50 messages
@@ -127,10 +163,8 @@ const Chat = () => {
   const messageQueueRef = useRef([]);
   const processingQueueRef = useRef(false);
 
-  // NEW: Scroll behavior control refs
-  const shouldScrollRef = useRef(false); // Control when to auto-scroll
-  const previousScrollHeightRef = useRef(0); // For maintaining position during "load older"
-  const isUserScrollingRef = useRef(false); // Track if user is manually scrolling
+  // SIMPLIFIED: Scroll behavior control refs (reduced from 4 to 2)
+  const shouldAutoScrollRef = useRef(true); // Single flag: should we auto-scroll?
   const lastMessageCountRef = useRef(0); // Track message count changes
 
   // Stable refs for callback dependencies (prevent MessageInput remounting)
@@ -208,47 +242,36 @@ const Chat = () => {
     return scrollHeight - scrollTop - clientHeight < 100;
   }, []);
 
-  // FIXED: Smart auto-scroll on messages change
-  // Only scroll when: 1) Conversation changes 2) New message arrives and user is at bottom 3) User sends message
+  // SIMPLIFIED: Smart auto-scroll on messages change
+  // Auto-scroll when: 1) User sent message OR 2) User is at bottom
   useLayoutEffect(() => {
     if (!scrollContainerRef.current || conversationMessages.length === 0) return;
 
     const currentMessageCount = conversationMessages.length;
     const previousMessageCount = lastMessageCountRef.current;
 
-    // Case 1: First load or conversation changed - scroll to bottom
-    if (shouldScrollRef.current) {
-      scrollToBottom('auto');
-      shouldScrollRef.current = false;
-      lastMessageCountRef.current = currentMessageCount;
-      return;
-    }
-
-    // Case 2: New messages arrived
+    // New messages arrived
     if (currentMessageCount > previousMessageCount) {
-      const newMessagesCount = currentMessageCount - previousMessageCount;
-
-      // Check if last message is from current user (they just sent it)
-      const lastMessage = conversationMessages[conversationMessages.length - 1];
+      const lastMessage = conversationMessages[currentMessageCount - 1];
       const isOwnMessage = lastMessage?.senderId === user?.id;
 
-      // Auto-scroll if: user sent message OR user is already at bottom
-      if (isOwnMessage || isAtBottom()) {
+      // Auto-scroll if: user sent it OR user is at bottom
+      if (isOwnMessage || shouldAutoScrollRef.current) {
         scrollToBottom('smooth');
       }
 
       lastMessageCountRef.current = currentMessageCount;
     }
-  }, [conversationMessages, scrollToBottom, isAtBottom, user?.id]);
+  }, [conversationMessages, scrollToBottom, user?.id]);
 
-  // Scroll to bottom when conversation changes (after DOM update)
-  // FIX: Use actual length, not boolean (> 0), so effect triggers when messages load
+  // Reset scroll to bottom when conversation changes
   useEffect(() => {
-    if (activeConversationId && conversationMessages.length > 0) {
-      shouldScrollRef.current = true; // Set flag to scroll on next layout effect
+    if (activeConversationId) {
+      shouldAutoScrollRef.current = true; // Enable auto-scroll for new conversation
+      scrollToBottom('auto');
       lastMessageCountRef.current = conversationMessages.length;
     }
-  }, [activeConversationId, conversationMessages.length]);
+  }, [activeConversationId, scrollToBottom, conversationMessages.length]);
 
   // Handle mobile keyboard visibility changes (viewport resize)
   useEffect(() => {
@@ -277,59 +300,27 @@ const Chat = () => {
     };
   }, [scrollToBottom, isAtBottom]);
 
-  // Track user scrolling to prevent auto-scroll during manual scroll
+  // SIMPLIFIED: Track scroll position to update auto-scroll flag
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
     if (!scrollContainer) return;
 
-    let scrollTimeout;
     const handleScroll = () => {
-      isUserScrollingRef.current = true;
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(() => {
-        isUserScrollingRef.current = false;
-      }, 150);
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+      // Update auto-scroll flag based on position (within 100px of bottom)
+      shouldAutoScrollRef.current = distanceFromBottom < 100;
     };
 
     scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
       scrollContainer.removeEventListener('scroll', handleScroll);
-      clearTimeout(scrollTimeout);
     };
   }, []);
 
-  // Preserve scroll position during polling-triggered re-renders
-  // This ensures that if polling causes a re-render, scroll position is maintained
-  const scrollPositionRef = useRef(0);
-
-  useLayoutEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer || conversationMessages.length === 0) return;
-
-    // Save scroll position before re-render
-    const savedPosition = scrollContainer.scrollTop;
-    scrollPositionRef.current = savedPosition;
-
-    // After re-render completes, restore scroll if user wasn't actively scrolling
-    // and we're not supposed to auto-scroll
-    return () => {
-      if (scrollContainer && !shouldScrollRef.current && !isUserScrollingRef.current) {
-        // Check if we're not at bottom (user is reading history)
-        const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-        const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-
-        // If user is reading history (not at bottom), preserve their position
-        if (!isNearBottom && scrollPositionRef.current > 0) {
-          requestAnimationFrame(() => {
-            if (scrollContainer) {
-              scrollContainer.scrollTop = scrollPositionRef.current;
-            }
-          });
-        }
-      }
-    };
-  }, [conversationMessages]);
+  // REMOVED: Complex scroll position preservation - simplified logic handles this better
 
   // Reset message display limit when conversation changes
   useEffect(() => {
@@ -464,7 +455,7 @@ const Chat = () => {
     processMessageQueue();
 
     // Mark that we should scroll (user sent message)
-    shouldScrollRef.current = true;
+    shouldAutoScrollRef.current = true;
   }, [processMessageQueue]); // Only depends on processMessageQueue (which is now stable)
 
   // Handle typing indicator
@@ -508,6 +499,7 @@ const Chat = () => {
     const targetConversationId = activeConversationIdRef.current; // Use ref
 
     setUploading(true);
+    setUploadProgress(0);
 
     try {
       const fileCount = files.length;
@@ -518,8 +510,18 @@ const Chat = () => {
         }
 
         const file = files[i];
-        // Upload file to R2
-        const uploadResponse = await api.uploads.uploadFile(file, type);
+
+        // ADDED: Track upload progress
+        const onUploadProgress = (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          // Calculate overall progress across all files
+          const fileProgress = (i / fileCount) * 100;
+          const currentFileProgress = (percentCompleted / fileCount);
+          setUploadProgress(Math.round(fileProgress + currentFileProgress));
+        };
+
+        // Upload file to R2 with progress tracking
+        const uploadResponse = await api.uploads.uploadFile(file, type, { onUploadProgress });
         const { url, filename, size: fileSize, type: fileType } = uploadResponse.data.data;
 
         // Send message with attachment to the ORIGINAL conversation
@@ -531,6 +533,15 @@ const Chat = () => {
         });
 
         const content = type === 'image' ? `📷 ${filename}` : `📎 ${filename}`;
+
+        // FIXED: Check if conversation changed during upload
+        if (activeConversationIdRef.current !== targetConversationId) {
+          console.warn('[Chat] Conversation changed during upload - file sent to original conversation');
+          toast.warning(`File uploaded, but you switched conversations. Message sent to original chat.`, {
+            duration: 6000,
+          });
+        }
+
         await sendMessageRef.current(targetConversationId, content, type === 'image' ? 'image' : 'file', metadata); // Use ref
       }
 
@@ -541,8 +552,10 @@ const Chat = () => {
         toast.success(`${fileCount} files uploaded successfully!`);
       }
 
-      // Mark that we should scroll (user uploaded file)
-      shouldScrollRef.current = true;
+      // Mark that we should scroll (user uploaded file) - but only if still in same conversation
+      if (activeConversationIdRef.current === targetConversationId) {
+        shouldAutoScrollRef.current = true;
+      }
     } catch (error) {
       if (error.message === 'Upload cancelled') {
         toast.info('File upload cancelled');
@@ -552,6 +565,7 @@ const Chat = () => {
       }
     } finally {
       setUploading(false);
+      setUploadProgress(0); // ADDED: Reset progress
       if (uploadAbortControllerRef.current === abortController) {
         uploadAbortControllerRef.current = null;
       }
@@ -1053,6 +1067,9 @@ const Chat = () => {
 
     return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+        {/* ADDED: Connection Status Banner */}
+        <ConnectionStatus wsConnected={wsConnected} wsError={wsError} isPolling={isPolling} />
+
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
           <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -1135,6 +1152,33 @@ const Chat = () => {
             </div>
           ) : (
             <>
+              {/* ADDED: File Upload Progress Indicator */}
+              {uploading && uploadProgress > 0 && (
+                <div className="mb-4 p-4 bg-primary-50 dark:bg-primary-900/20 rounded-xl border border-primary-200 dark:border-primary-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-primary-900 dark:text-primary-100 flex items-center gap-2">
+                      <File className="w-4 h-4 animate-pulse" />
+                      Uploading...
+                    </span>
+                    <span className="text-sm font-bold text-primary-700 dark:text-primary-300">
+                      {uploadProgress}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-primary-200 dark:bg-primary-800 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-primary-500 to-primary-600 dark:from-primary-400 dark:to-primary-500 h-2 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                  <button
+                    onClick={() => uploadAbortControllerRef.current?.abort()}
+                    className="mt-2 text-xs text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-medium hover:underline"
+                  >
+                    Cancel upload
+                  </button>
+                </div>
+              )}
+
               {/* Load More Button */}
               {hasMoreMessages && (
                 <div className="flex justify-center mb-4">

@@ -1,5 +1,6 @@
 import { useState, useRef, memo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { Send, Plus, Image, Camera, Paperclip } from 'lucide-react';
 
 const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload, onTyping }) => {
@@ -156,9 +157,12 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload, on
       for (const file of fileArray) {
         const validation = validateFile(file, type);
         if (!validation.valid) {
-          // Show error toast (assuming toast is available globally)
+          // FIXED: Use toast instead of alert for better UX
           console.error('File validation failed:', validation.error);
-          alert(validation.error); // Fallback to alert if toast not available
+          toast.error(validation.error, {
+            duration: 5000,
+            icon: '⚠️',
+          });
           return;
         }
       }

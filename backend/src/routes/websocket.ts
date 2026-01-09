@@ -1,16 +1,66 @@
 /**
  * WebSocket Routes
  * Handles WebSocket upgrade requests and proxies to Durable Objects
+ *
+ * SECURITY: Uses short-lived auth codes instead of JWT tokens in URLs
  */
 
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { nanoid } from 'nanoid';
 import { authenticate } from '../middleware/auth';
-import { verifyToken } from '../lib/jwt';
 import type { Env, Variables } from '../types/env';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// ============================================================================
+// AUTH CODE EXCHANGE - Secure WebSocket Authentication
+// ============================================================================
+
+/**
+ * POST /ws/auth-code
+ * Generate short-lived auth code for WebSocket connection
+ * Prevents JWT exposure in WebSocket URLs
+ */
+app.post('/auth-code', authenticate, async (c) => {
+  try {
+    const user = c.get('user');
+    if (!user) {
+      throw new HTTPException(401, { message: 'Unauthorized' });
+    }
+
+    // Generate unique auth code
+    const authCode = nanoid(32);
+
+    // Store code in KV with 30-second expiration
+    const codeKey = `ws:authcode:${authCode}`;
+    await c.env.CACHE.put(
+      codeKey,
+      JSON.stringify({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        franchiseId: user.franchiseId,
+        createdAt: Date.now(),
+      }),
+      { expirationTtl: 30 } // 30 seconds
+    );
+
+    console.log(`[WebSocket] Generated auth code for user ${user.id}`);
+
+    return c.json({
+      success: true,
+      data: {
+        code: authCode,
+        expiresIn: 30, // seconds
+      },
+    });
+  } catch (error: any) {
+    if (error instanceof HTTPException) throw error;
+    console.error('Error generating auth code:', error);
+    throw new HTTPException(500, { message: 'Failed to generate auth code' });
+  }
+});
 
 // ============================================================================
 // WEBSOCKET UPGRADE ROUTES
@@ -19,28 +69,40 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 /**
  * GET /ws/user
  * Global WebSocket connection for user - receives updates from ALL conversations
+ * Uses short-lived auth code instead of JWT token for security
  */
 app.get('/user', async (c) => {
   try {
-    // Authenticate from query param token (WebSocket can't use headers)
-    const token = c.req.query('token');
+    // Authenticate using auth code (NOT JWT token)
+    const authCode = c.req.query('code');
 
-    if (!token) {
-      throw new HTTPException(401, { message: 'Unauthorized: No token provided' });
+    if (!authCode) {
+      throw new HTTPException(401, { message: 'Unauthorized: No auth code provided' });
     }
 
-    // Verify JWT token
-    let user;
-    try {
-      const payload = await verifyToken(token, c.env.JWT_SECRET);
-      user = {
-        id: payload.id,
-        email: payload.email,
-        role: payload.role,
-      };
-    } catch (error) {
-      throw new HTTPException(401, { message: 'Unauthorized: Invalid or expired token' });
+    // Retrieve and delete auth code (single-use)
+    const codeKey = `ws:authcode:${authCode}`;
+    const codeData = await c.env.CACHE.get(codeKey, 'json') as any;
+
+    if (!codeData) {
+      throw new HTTPException(401, { message: 'Unauthorized: Invalid or expired auth code' });
     }
+
+    // Delete code immediately (single-use)
+    await c.env.CACHE.delete(codeKey);
+
+    // Verify code is not too old (additional safety check)
+    const codeAge = Date.now() - (codeData.createdAt || 0);
+    if (codeAge > 35000) { // 35 seconds (5s grace period)
+      throw new HTTPException(401, { message: 'Unauthorized: Auth code expired' });
+    }
+
+    const user = {
+      id: codeData.userId,
+      email: codeData.email,
+      role: codeData.role,
+      franchiseId: codeData.franchiseId,
+    };
 
     // Get user's name from database
     const userRecord = await c.env.DB.prepare(
@@ -81,31 +143,42 @@ app.get('/user', async (c) => {
  * GET /ws/chat/:conversationId
  * Upgrade HTTP connection to WebSocket and proxy to Durable Object
  * NOTE: This route is deprecated - use /ws/user for global connection
+ * Uses short-lived auth code for security
  */
 app.get('/chat/:conversationId', async (c) => {
   try {
     const { conversationId } = c.req.param();
 
-    // Authenticate from query param token (for WebSocket compatibility)
-    const token = c.req.query('token');
+    // Authenticate using auth code (NOT JWT token)
+    const authCode = c.req.query('code');
 
-    if (!token) {
-      throw new HTTPException(401, { message: 'Unauthorized: No token provided' });
+    if (!authCode) {
+      throw new HTTPException(401, { message: 'Unauthorized: No auth code provided' });
     }
 
-    // Verify JWT token
-    let user;
-    try {
-      const payload = await verifyToken(token, c.env.JWT_SECRET);
-      user = {
-        id: payload.id,
-        email: payload.email,
-        role: payload.role,
-        franchiseId: payload.franchiseId,
-      };
-    } catch (error) {
-      throw new HTTPException(401, { message: 'Unauthorized: Invalid or expired token' });
+    // Retrieve and delete auth code (single-use)
+    const codeKey = `ws:authcode:${authCode}`;
+    const codeData = await c.env.CACHE.get(codeKey, 'json') as any;
+
+    if (!codeData) {
+      throw new HTTPException(401, { message: 'Unauthorized: Invalid or expired auth code' });
     }
+
+    // Delete code immediately (single-use)
+    await c.env.CACHE.delete(codeKey);
+
+    // Verify code is not too old
+    const codeAge = Date.now() - (codeData.createdAt || 0);
+    if (codeAge > 35000) { // 35 seconds
+      throw new HTTPException(401, { message: 'Unauthorized: Auth code expired' });
+    }
+
+    const user = {
+      id: codeData.userId,
+      email: codeData.email,
+      role: codeData.role,
+      franchiseId: codeData.franchiseId,
+    };
 
     // Check if this is a WebSocket upgrade request
     const upgradeHeader = c.req.header('Upgrade');

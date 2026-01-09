@@ -196,9 +196,11 @@ export class ChatRoomDO {
       const participants = await this.getConversationParticipants();
       const otherParticipants = participants.filter(id => id !== userId);
 
+      // FIXED: Include conversationId in typing payload so frontend can track typing across all conversations
       await Promise.allSettled(
         otherParticipants.map(participantId =>
           this.notifyParticipant(participantId, 'typing', {
+            conversationId: this.conversationId, // ADD: Conversation context
             userId,
             userName,
             isTyping,
@@ -462,10 +464,11 @@ export class ChatRoomDO {
       // Update database with read receipt
       await this.saveReadReceiptToDB(messageId, connection.userId);
 
-      // Broadcast read receipt to all participants
+      // FIXED: Include conversationId for O(n) lookup instead of O(n*m)
       this.broadcast({
         type: 'read',
         payload: {
+          conversationId: this.conversationId, // ADD: Enable targeted message lookup
           messageId,
           userId: connection.userId,
           userName: connection.userName,
@@ -767,13 +770,19 @@ export class ChatRoomDO {
 
   /**
    * Notify a single participant via their UserConnectionDO
+   * ADDED: Retry mechanism with exponential backoff and KV queue fallback
    */
-  private async notifyParticipant(userId: string, type: string, payload: any): Promise<void> {
+  private async notifyParticipant(
+    userId: string,
+    type: string,
+    payload: any,
+    retryCount: number = 0
+  ): Promise<void> {
     try {
       const userDOId = this.env.USER_CONNECTIONS.idFromName(userId);
       const userDOStub = this.env.USER_CONNECTIONS.get(userDOId);
 
-      await userDOStub.fetch(
+      const response = await userDOStub.fetch(
         new Request('http://internal/notify', {
           method: 'POST',
           body: JSON.stringify({
@@ -783,9 +792,60 @@ export class ChatRoomDO {
           }),
         })
       );
+
+      if (!response.ok) {
+        throw new Error(`Notification failed: ${response.status}`);
+      }
     } catch (error) {
-      // Log but don't fail - user might be offline
-      console.debug(`[ChatRoomDO] Failed to notify user ${userId}:`, error);
+      console.warn(
+        `[ChatRoomDO] Failed to notify user ${userId} (attempt ${retryCount + 1}/3):`,
+        error
+      );
+
+      // ADDED: Retry up to 3 times with exponential backoff
+      if (retryCount < 3) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        console.log(`[ChatRoomDO] Retrying notification to ${userId} in ${delay}ms`);
+
+        setTimeout(() => {
+          this.notifyParticipant(userId, type, payload, retryCount + 1);
+        }, delay);
+      } else {
+        // ADDED: After 3 failures, queue to KV for when user reconnects
+        console.log(`[ChatRoomDO] All retries failed, queueing notification to KV for user ${userId}`);
+        await this.queueNotificationToKV(userId, type, payload);
+      }
+    }
+  }
+
+  /**
+   * Queue notification to KV for offline user
+   * ADDED: KV fallback for failed notification deliveries
+   */
+  private async queueNotificationToKV(userId: string, type: string, payload: any): Promise<void> {
+    try {
+      const queueKey = `user:${userId}:notification_queue`;
+      const existing = (await this.env.CACHE.get(queueKey, 'json')) as any[] || [];
+
+      existing.push({
+        type,
+        conversationId: this.conversationId,
+        payload,
+        queuedAt: Date.now(),
+      });
+
+      // Keep last 100 notifications, expire after 7 days
+      const trimmed = existing.slice(-100);
+      await this.env.CACHE.put(queueKey, JSON.stringify(trimmed), {
+        expirationTtl: 604800, // 7 days
+      });
+
+      console.log(
+        `[ChatRoomDO] Queued notification for offline user ${userId} (${trimmed.length} in queue)`
+      );
+    } catch (error) {
+      console.error('[ChatRoomDO] Failed to queue notification to KV:', error);
+      // Last resort: log and continue (don't block message send)
     }
   }
 

@@ -21,6 +21,23 @@ interface WSMessage {
   timestamp?: string;
 }
 
+// Rate limit configuration
+interface RateLimitConfig {
+  windowMs: number;      // Time window in milliseconds
+  maxRequests: number;   // Max requests per window
+}
+
+interface RateLimitRecord {
+  count: number;
+  resetAt: number;
+}
+
+const RATE_LIMITS: Record<string, RateLimitConfig> = {
+  message: { windowMs: 60000, maxRequests: 60 },     // 60 messages per minute
+  typing: { windowMs: 10000, maxRequests: 20 },      // 20 typing events per 10 seconds
+  default: { windowMs: 60000, maxRequests: 100 },    // 100 other actions per minute
+};
+
 export class UserConnectionDO {
   private ctx: DurableObjectState;
   private env: Env;
@@ -29,6 +46,7 @@ export class UserConnectionDO {
   private socket: WebSocket | null = null;
   private userConversations: Set<string> = new Set();
   private lastPing: number = Date.now();
+  private rateLimiters: Map<string, RateLimitRecord> = new Map();
 
   constructor(ctx: DurableObjectState, env: Env) {
     this.ctx = ctx;
@@ -98,6 +116,48 @@ export class UserConnectionDO {
   }
 
   /**
+   * Check rate limit for specific message type
+   * Returns true if request is allowed, false if rate limit exceeded
+   */
+  private checkRateLimit(messageType: string): boolean {
+    const config = RATE_LIMITS[messageType] || RATE_LIMITS.default;
+    const key = `${this.userId}:${messageType}`;
+    const now = Date.now();
+
+    const record = this.rateLimiters.get(key);
+
+    if (!record || record.resetAt < now) {
+      // No record or window expired - create new window
+      this.rateLimiters.set(key, {
+        count: 1,
+        resetAt: now + config.windowMs,
+      });
+      return true;
+    }
+
+    if (record.count >= config.maxRequests) {
+      // Rate limit exceeded
+      return false;
+    }
+
+    // Increment count
+    record.count++;
+    return true;
+  }
+
+  /**
+   * Clean up expired rate limit records
+   */
+  private cleanupRateLimiters(): void {
+    const now = Date.now();
+    for (const [key, record] of this.rateLimiters.entries()) {
+      if (record.resetAt < now) {
+        this.rateLimiters.delete(key);
+      }
+    }
+  }
+
+  /**
    * Handle WebSocket messages from client
    */
   async webSocketMessage(_ws: WebSocket, rawMessage: string | ArrayBuffer): Promise<void> {
@@ -107,6 +167,29 @@ export class UserConnectionDO {
         : JSON.parse(new TextDecoder().decode(rawMessage as ArrayBuffer));
 
       this.lastPing = Date.now();
+
+      // Skip rate limiting for ping/pong keepalive
+      if (message.type !== 'ping' && message.type !== 'pong') {
+        // Check rate limit BEFORE processing
+        if (!this.checkRateLimit(message.type)) {
+          const config = RATE_LIMITS[message.type] || RATE_LIMITS.default;
+          const resetIn = Math.ceil(config.windowMs / 1000);
+
+          console.warn(
+            `[UserConnectionDO] Rate limit exceeded for user ${this.userId}, type: ${message.type}`
+          );
+
+          this.send({
+            type: 'error',
+            payload: {
+              message: `Rate limit exceeded. Please slow down. (${config.maxRequests} ${message.type}s per ${resetIn}s)`,
+              code: 'RATE_LIMIT',
+              resetIn,
+            },
+          });
+          return;
+        }
+      }
 
       switch (message.type) {
         case 'ping':
@@ -199,13 +282,14 @@ export class UserConnectionDO {
 
   /**
    * Queue message (sends immediately if online, stores in KV if offline)
+   * ADDED: DO storage fallback if KV fails
    */
   private async queueMessage(message: WSMessage): Promise<void> {
     if (this.socket && this.socket.readyState === 1) { // WebSocket.OPEN = 1
       // User online, send immediately
       this.send(message);
     } else {
-      // User offline, persist to KV
+      // User offline, persist to KV (with DO storage fallback)
       const queueKey = this.getQueueKey();
 
       try {
@@ -220,34 +304,70 @@ export class UserConnectionDO {
           { expirationTtl: 604800 } // 7 days
         );
 
-        console.log(`[UserConnectionDO] Queued message for offline user ${this.userId} (${trimmed.length} in queue)`);
-      } catch (error) {
-        console.error('[UserConnectionDO] Error queueing message:', error);
+        console.log(`[UserConnectionDO] Queued message to KV for offline user ${this.userId} (${trimmed.length} in queue)`);
+      } catch (kvError) {
+        console.error('[UserConnectionDO] KV queue failed, using DO storage fallback:', kvError);
+
+        // ADDED: Fallback to Durable Object storage (more expensive but reliable)
+        try {
+          const doQueueKey = `message_queue:${this.userId}`;
+          const existingDoQueue = (await this.ctx.storage.get(doQueueKey)) as WSMessage[] || [];
+          existingDoQueue.push({ ...message, queuedAt: Date.now() } as any);
+
+          // Keep last 50 messages (DO storage more limited)
+          const trimmedDoQueue = existingDoQueue.slice(-50);
+          await this.ctx.storage.put(doQueueKey, trimmedDoQueue);
+
+          console.log(`[UserConnectionDO] Queued message to DO storage for user ${this.userId} (${trimmedDoQueue.length} in queue)`);
+        } catch (doError) {
+          console.error('[UserConnectionDO] DO storage fallback also failed:', doError);
+          // Absolute last resort: Message will be lost, but don't crash
+        }
       }
     }
   }
 
   /**
    * Flush queued messages when user reconnects
+   * ADDED: Also flush from DO storage fallback
    */
   private async flushQueuedMessages(): Promise<void> {
+    const messages: WSMessage[] = [];
+
+    // Try KV first
     const queueKey = this.getQueueKey();
-
     try {
-      const queue = await this.env.CACHE.get(queueKey, 'json') as WSMessage[] || [];
-
-      if (queue.length > 0) {
-        console.log(`[UserConnectionDO] Flushing ${queue.length} queued messages for user ${this.userId}`);
-
-        for (const message of queue) {
-          this.send(message);
-        }
-
-        // Clear queue after delivery
-        await this.env.CACHE.delete(queueKey);
-      }
+      const kvQueue = await this.env.CACHE.get(queueKey, 'json') as WSMessage[] || [];
+      messages.push(...kvQueue);
+      await this.env.CACHE.delete(queueKey);
     } catch (error) {
-      console.error('[UserConnectionDO] Error flushing queued messages:', error);
+      console.error('[UserConnectionDO] Failed to read KV queue:', error);
+    }
+
+    // Also check DO storage fallback
+    const doQueueKey = `message_queue:${this.userId}`;
+    try {
+      const doQueue = (await this.ctx.storage.get(doQueueKey)) as WSMessage[] || [];
+      messages.push(...doQueue);
+      await this.ctx.storage.delete(doQueueKey);
+    } catch (error) {
+      console.error('[UserConnectionDO] Failed to read DO storage queue:', error);
+    }
+
+    if (messages.length > 0) {
+      // Deduplicate by messageId/timestamp (in case same message in both queues)
+      const uniqueMessages = Array.from(
+        new Map(messages.map(m => [m.payload?.id || m.timestamp, m])).values()
+      );
+
+      console.log(
+        `[UserConnectionDO] Flushing ${uniqueMessages.length} queued messages for user ${this.userId} (${messages.length} total, ${messages.length - uniqueMessages.length} duplicates removed)`
+      );
+
+      // Sort by timestamp and send
+      uniqueMessages
+        .sort((a: any, b: any) => (a.queuedAt || 0) - (b.queuedAt || 0))
+        .forEach(message => this.send(message));
     }
   }
 
@@ -380,6 +500,12 @@ export class UserConnectionDO {
         console.error('[UserConnectionDO] Error closing stale connection:', error);
       }
       this.socket = null;
+    }
+
+    // Clean up expired rate limit records
+    this.cleanupRateLimiters();
+    if (this.rateLimiters.size > 0) {
+      console.log(`[UserConnectionDO] Active rate limiters for user ${this.userId}: ${this.rateLimiters.size}`);
     }
 
     // Set next alarm

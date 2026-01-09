@@ -64,6 +64,7 @@ export const ChatProvider = ({ children }) => {
   const [sending, setSending] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [wsError, setWsError] = useState(null);
+  const [isPolling, setIsPolling] = useState(false); // ADDED: Polling fallback state
 
   // ============================================================================
   // REFS
@@ -77,6 +78,9 @@ export const ChatProvider = ({ children }) => {
   const messagesRef = useRef(messages);
   const activeConversationIdRef = useRef(activeConversationId);
   const sendWebSocketMessageRef = useRef(null); // Stable reference for WebSocket send
+  const tempIdToServerIdMapRef = useRef(new Map()); // ADDED: Track tempId → serverId mappings for deduplication
+  const pollingIntervalRef = useRef(null); // ADDED: Polling interval ID
+  const lastSyncTimestampRef = useRef(null); // ADDED: Last sync timestamp for differential updates
 
   // ============================================================================
   // WEBSOCKET FUNCTIONS (Defined first, no dependencies)
@@ -84,8 +88,9 @@ export const ChatProvider = ({ children }) => {
 
   /**
    * Connect to global WebSocket for all conversations
+   * SECURITY: Uses short-lived auth code instead of JWT token in URL
    */
-  const connectWebSocket = useCallback(() => {
+  const connectWebSocket = useCallback(async () => {
     if (!isAuthenticated || !currentUser) {
       console.log('[ChatContext] Cannot connect WS: not authenticated');
       return;
@@ -99,10 +104,17 @@ export const ChatProvider = ({ children }) => {
     }
 
     try {
-      const token = localStorage.getItem('authToken');
-      const wsUrl = `${WS_BASE_URL}/ws/user?token=${encodeURIComponent(token)}`;
+      // SECURITY FIX: Get short-lived auth code instead of using JWT in URL
+      console.log('[ChatContext] Requesting WebSocket auth code');
+      const authCodeResponse = await api.websocket.getAuthCode();
+      const authCode = authCodeResponse.data.data.code;
 
-      console.log('[ChatContext] Connecting to global WebSocket');
+      if (!authCode) {
+        throw new Error('Failed to obtain WebSocket auth code');
+      }
+
+      const wsUrl = `${WS_BASE_URL}/ws/user?code=${encodeURIComponent(authCode)}`;
+      console.log('[ChatContext] Connecting to global WebSocket (secure)');
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -172,7 +184,27 @@ export const ChatProvider = ({ children }) => {
       };
     } catch (error) {
       console.error('[ChatContext] Error creating WebSocket:', error);
-      setWsError('Failed to connect');
+
+      // Provide specific error message for auth code failures
+      if (error.response?.status === 401) {
+        setWsError('Authentication failed');
+        console.log('[ChatContext] Auth code rejected - user may need to re-login');
+      } else if (error.message?.includes('auth code')) {
+        setWsError('Failed to obtain connection credentials');
+      } else {
+        setWsError('Failed to connect');
+      }
+
+      // Trigger reconnect attempt for transient failures
+      if (isAuthenticated && wsReconnectAttemptsRef.current < WS_RECONNECT_DELAYS.length) {
+        const delay = WS_RECONNECT_DELAYS[Math.min(wsReconnectAttemptsRef.current, WS_RECONNECT_DELAYS.length - 1)];
+        console.log(`[ChatContext] Retrying connection in ${delay}ms (attempt ${wsReconnectAttemptsRef.current + 1})`);
+
+        wsReconnectTimeoutRef.current = setTimeout(() => {
+          wsReconnectAttemptsRef.current++;
+          connectWebSocket();
+        }, delay);
+      }
     }
   }, [isAuthenticated, currentUser]);
 
@@ -204,6 +236,91 @@ export const ChatProvider = ({ children }) => {
   }, []);
 
   /**
+   * Poll chat sync API (fallback when WebSocket unavailable)
+   * ADDED: HTTP polling fallback for production reliability
+   */
+  const pollChatSync = useCallback(async () => {
+    if (!isAuthenticated || wsConnected) {
+      return; // Skip if WebSocket is connected
+    }
+
+    try {
+      // Build conversation timestamps for differential sync
+      const conversationTimestamps = {};
+      Object.keys(messagesRef.current).forEach(convId => {
+        const msgs = messagesRef.current[convId];
+        if (msgs.length > 0) {
+          conversationTimestamps[convId] = msgs[msgs.length - 1].timestamp;
+        }
+      });
+
+      // Get presence for visible users
+      const presenceUserIds = [];
+      conversationsRef.current.forEach(conv => {
+        conv.participants?.forEach(p => {
+          if (!presenceUserIds.includes(p.userId)) {
+            presenceUserIds.push(p.userId);
+          }
+        });
+      });
+
+      const response = await api.chat.sync({
+        lastSync: lastSyncTimestampRef.current,
+        activeConversationId: activeConversationIdRef.current,
+        conversationTimestamps,
+        presenceUserIds: presenceUserIds.slice(0, 50), // Limit to 50
+      });
+
+      const {
+        conversations: updatedConvs,
+        messages: newMessages,
+        presence: presenceUpdate,
+        syncTimestamp,
+      } = response.data.data;
+
+      // Update conversations if any changed
+      if (updatedConvs && updatedConvs.length > 0) {
+        setConversations(prev => {
+          const merged = [...prev];
+          updatedConvs.forEach(updated => {
+            const idx = merged.findIndex(c => c.id === updated.id);
+            if (idx >= 0) {
+              merged[idx] = { ...merged[idx], ...updated };
+            } else {
+              merged.push(updated);
+            }
+          });
+          return merged;
+        });
+      }
+
+      // Update messages if any new ones
+      if (newMessages && Object.keys(newMessages).length > 0) {
+        setMessages(prev => {
+          const updated = { ...prev };
+          Object.entries(newMessages).forEach(([convId, msgs]) => {
+            updated[convId] = [
+              ...(prev[convId] || []),
+              ...msgs,
+            ];
+          });
+          return updated;
+        });
+      }
+
+      // Update presence
+      if (presenceUpdate && Object.keys(presenceUpdate).length > 0) {
+        setPresence(prev => ({ ...prev, ...presenceUpdate }));
+      }
+
+      lastSyncTimestampRef.current = syncTimestamp;
+    } catch (error) {
+      console.error('[ChatContext] Polling error:', error);
+      // Don't show error toast - polling errors are expected during network issues
+    }
+  }, [isAuthenticated, wsConnected]);
+
+  /**
    * Send message via WebSocket (STABLE - uses ref pattern)
    */
   const sendWebSocketMessage = useCallback((message) => {
@@ -217,12 +334,30 @@ export const ChatProvider = ({ children }) => {
         wsRef.current.send(JSON.stringify(message));
       } else {
         // Queue message if offline
-        if (messageQueueRef.current.length < WS_MAX_QUEUE_SIZE) {
+        const currentQueueSize = messageQueueRef.current.length;
+
+        if (currentQueueSize < WS_MAX_QUEUE_SIZE) {
           messageQueueRef.current.push(message);
-          console.log('[ChatContext] Message queued (offline)');
+          console.log(`[ChatContext] Message queued (offline), queue size: ${currentQueueSize + 1}/${WS_MAX_QUEUE_SIZE}`);
+
+          // ADDED: Warn at 80% capacity
+          const warningThreshold = Math.floor(WS_MAX_QUEUE_SIZE * 0.8);
+          if (currentQueueSize >= warningThreshold && currentQueueSize < WS_MAX_QUEUE_SIZE - 1) {
+            toast.warning(
+              `Message queue filling up (${currentQueueSize + 1}/${WS_MAX_QUEUE_SIZE}). Connection issue?`,
+              { duration: 5000 }
+            );
+          }
         } else {
-          console.warn('[ChatContext] Message queue full, dropping message');
-          toast.error('Too many queued messages. Please try again.');
+          // Queue full - show actionable error
+          console.error('[ChatContext] Message queue full, dropping message:', message);
+          toast.error(
+            <div>
+              <p className="font-bold">Queue full - message not sent</p>
+              <p className="text-sm mt-1">Check your connection or refresh the page</p>
+            </div>,
+            { duration: 10000 }
+          );
         }
       }
     };
@@ -278,34 +413,55 @@ export const ChatProvider = ({ children }) => {
 
   /**
    * Handle new message from WebSocket
+   * FIXED: Added tempId Map for better deduplication and race condition handling
    */
   const handleNewMessage = useCallback((payload) => {
-    const { conversationId, tempId } = payload;
+    const { conversationId, tempId, id: serverId } = payload;
 
     startTransition(() => {
       setMessages((prev) => {
         const convMessages = prev[conversationId] || [];
 
-        // If tempId exists, replace optimistic message
+        // Track tempId → serverId mapping for deduplication
+        if (tempId && serverId) {
+          tempIdToServerIdMapRef.current.set(tempId, serverId);
+        }
+
+        // STEP 1: Check for duplicates by serverId FIRST (most important)
+        const existsByServerId = convMessages.some((m) => m.id === serverId);
+        if (existsByServerId) {
+          return prev; // Already have this message
+        }
+
+        // STEP 2: Replace optimistic message if tempId exists
         if (tempId) {
           const tempIndex = convMessages.findIndex((m) => m.id === tempId);
           if (tempIndex >= 0) {
+            // Found optimistic message - replace it
             const updated = [...convMessages];
             updated[tempIndex] = payload;
             return { ...prev, [conversationId]: updated };
           }
+
+          // STEP 3: Check if tempId was already replaced (race condition)
+          const mappedServerId = tempIdToServerIdMapRef.current.get(tempId);
+          if (mappedServerId && mappedServerId === serverId) {
+            // This message already replaced the optimistic one - don't add again
+            console.log(`[ChatContext] Prevented duplicate: tempId ${tempId} already mapped to ${serverId}`);
+            return prev;
+          }
+
+          // Optimistic message not found - it might have been cleared or never existed
+          console.warn(
+            `[ChatContext] tempId ${tempId} not found in conversation ${conversationId}. Adding as new message.`
+          );
         }
 
-        // Add new message if not duplicate
-        const exists = convMessages.some((m) => m.id === payload.id);
-        if (!exists) {
-          return {
-            ...prev,
-            [conversationId]: [...convMessages, payload],
-          };
-        }
-
-        return prev;
+        // STEP 4: Add as new message
+        return {
+          ...prev,
+          [conversationId]: [...convMessages, payload],
+        };
       });
 
       // Update conversation's lastMessageAt (only if changed)
@@ -323,17 +479,32 @@ export const ChatProvider = ({ children }) => {
         updated[index] = { ...current, lastMessageAt: payload.timestamp };
         return updated;
       });
+
+      // ADDED: Update sender's presence (implicit online status from message activity)
+      if (payload.senderId && payload.senderId !== currentUser?.id) {
+        setPresence(prev => ({
+          ...prev,
+          [payload.senderId]: {
+            isOnline: true,
+            lastSeen: new Date().toISOString(),
+          },
+        }));
+      }
     });
-  }, []);
+  }, [currentUser?.id]);
 
   /**
    * Handle typing indicator
+   * FIXED: Now processes typing for ALL conversations, not just active one
    */
   const handleTypingIndicator = useCallback((payload) => {
-    const { userId, userName, isTyping } = payload;
-    const conversationId = activeConversationIdRef.current;
+    const { userId, userName, isTyping, conversationId } = payload;
 
-    if (!conversationId) return;
+    // FIXED: Get conversationId from payload, not from active conversation ref
+    if (!conversationId) {
+      console.warn('[ChatContext] Typing indicator missing conversationId');
+      return;
+    }
 
     setTypingUsers((prev) => {
       const convTyping = prev[conversationId] || [];
@@ -379,35 +550,70 @@ export const ChatProvider = ({ children }) => {
 
   /**
    * Handle read receipt
+   * OPTIMIZED: O(n) lookup using conversationId instead of O(n*m) search
    */
   const handleReadReceipt = useCallback((payload) => {
-    const { messageId, userId, readAt } = payload;
+    const { messageId, userId, readAt, conversationId } = payload;
 
-    // Update message's read_by array
-    setMessages((prev) => {
-      let updated = false;
-      const newMessages = { ...prev };
+    // FIXED: Get conversationId from payload for targeted lookup
+    if (!conversationId) {
+      console.warn('[ChatContext] Read receipt missing conversationId, falling back to slow search');
+      // Fallback to old behavior if conversationId not provided (backward compatibility)
+      setMessages((prev) => {
+        let updated = false;
+        const newMessages = { ...prev };
 
-      Object.keys(newMessages).forEach((convId) => {
-        const msgIndex = newMessages[convId].findIndex((m) => m.id === messageId);
-        if (msgIndex >= 0) {
-          const msg = newMessages[convId][msgIndex];
-          const readBy = msg.read_by ? JSON.parse(msg.read_by) : [];
+        Object.keys(newMessages).forEach((convId) => {
+          const msgIndex = newMessages[convId].findIndex((m) => m.id === messageId);
+          if (msgIndex >= 0) {
+            const msg = newMessages[convId][msgIndex];
+            const readBy = msg.read_by ? JSON.parse(msg.read_by) : [];
 
-          // Add if not already there
-          if (!readBy.some((r) => r.userId === userId)) {
-            readBy.push({ userId, readAt });
-            newMessages[convId] = [...newMessages[convId]];
-            newMessages[convId][msgIndex] = {
-              ...msg,
-              read_by: JSON.stringify(readBy),
-            };
-            updated = true;
+            if (!readBy.some((r) => r.userId === userId)) {
+              readBy.push({ userId, readAt });
+              newMessages[convId] = [...newMessages[convId]];
+              newMessages[convId][msgIndex] = {
+                ...msg,
+                read_by: JSON.stringify(readBy),
+              };
+              updated = true;
+            }
           }
-        }
-      });
+        });
 
-      return updated ? newMessages : prev;
+        return updated ? newMessages : prev;
+      });
+      return;
+    }
+
+    // OPTIMIZED: Direct conversation lookup - O(n) instead of O(n*m)
+    setMessages((prev) => {
+      const convMessages = prev[conversationId];
+      if (!convMessages) return prev;
+
+      const msgIndex = convMessages.findIndex((m) => m.id === messageId);
+      if (msgIndex === -1) return prev;
+
+      const msg = convMessages[msgIndex];
+      const readBy = msg.read_by ? JSON.parse(msg.read_by) : [];
+
+      // Check if already read by this user
+      if (readBy.some((r) => r.userId === userId)) {
+        return prev; // No change needed
+      }
+
+      // Add read receipt
+      readBy.push({ userId, readAt });
+      const updatedMessages = [...convMessages];
+      updatedMessages[msgIndex] = {
+        ...msg,
+        read_by: JSON.stringify(readBy),
+      };
+
+      return {
+        ...prev,
+        [conversationId]: updatedMessages,
+      };
     });
   }, []);
 
@@ -646,18 +852,80 @@ export const ChatProvider = ({ children }) => {
   // USE EFFECTS
   // ============================================================================
 
-  // Keep refs in sync with state
+  // OPTIMIZED: Keep refs in sync with state (consolidated from 3 separate useEffects)
   useEffect(() => {
     conversationsRef.current = conversations;
-  }, [conversations]);
-
-  useEffect(() => {
     messagesRef.current = messages;
-  }, [messages]);
-
-  useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
-  }, [activeConversationId]);
+  }, [conversations, messages, activeConversationId]);
+
+  // ADDED: Cleanup old tempId mappings to prevent memory bloat
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      const fiveMinutesAgo = now - 300000; // 5 minutes
+
+      // Remove tempId mappings older than 5 minutes
+      tempIdToServerIdMapRef.current.forEach((serverId, tempId) => {
+        // tempId format: temp_TIMESTAMP_randomId
+        if (tempId.startsWith('temp_')) {
+          const timestampStr = tempId.split('_')[1];
+          const timestamp = parseInt(timestampStr, 10);
+
+          if (!isNaN(timestamp) && timestamp < fiveMinutesAgo) {
+            tempIdToServerIdMapRef.current.delete(tempId);
+          }
+        }
+      });
+
+      const mapSize = tempIdToServerIdMapRef.current.size;
+      if (mapSize > 0) {
+        console.log(`[ChatContext] tempId map size: ${mapSize} entries`);
+      }
+    }, 60000); // Every 60 seconds
+
+    return () => clearInterval(cleanupInterval);
+  }, []);
+
+  // ADDED: HTTP Polling Fallback - Start polling if WebSocket fails
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setIsPolling(false);
+      return;
+    }
+
+    // If WebSocket is connected, stop polling
+    if (wsConnected) {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+        setIsPolling(false);
+      }
+      return;
+    }
+
+    // Wait 30 seconds for WebSocket to connect before starting polling
+    const fallbackTimer = setTimeout(() => {
+      if (!wsConnected && isAuthenticated) {
+        console.log('[ChatContext] WebSocket unavailable, starting polling fallback');
+        setIsPolling(true);
+
+        // Poll every 3 seconds
+        pollingIntervalRef.current = setInterval(pollChatSync, 3000);
+
+        // Do first poll immediately
+        pollChatSync();
+      }
+    }, 30000); // 30 second delay
+
+    return () => {
+      clearTimeout(fallbackTimer);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [isAuthenticated, wsConnected, pollChatSync]);
 
   // Initial load
   useEffect(() => {
@@ -770,6 +1038,7 @@ export const ChatProvider = ({ children }) => {
     sending,
     wsConnected,
     wsError,
+    isPolling, // ADDED: Expose polling state for UI
     createConversation,
     loadConversations,
     getConversation,
@@ -792,6 +1061,7 @@ export const ChatProvider = ({ children }) => {
     sending,
     wsConnected,
     wsError,
+    isPolling, // ADDED: Include in dependencies
     createConversation,
     loadConversations,
     getConversation,

@@ -79,11 +79,12 @@ app.get('/chat/:conversationId', async (c) => {
     const doId = c.env.CHAT_ROOMS.idFromName(conversationId);
     const doStub = c.env.CHAT_ROOMS.get(doId);
 
-    // Create URL with user info for the DO
+    // Create URL with user info and conversation ID for the DO
     const doUrl = new URL(c.req.url);
     doUrl.searchParams.set('userId', user.id);
     doUrl.searchParams.set('userName', userName);
     doUrl.searchParams.set('connectionId', connectionId);
+    doUrl.searchParams.set('conversationId', conversationId); // Pass actual DB conversation ID
 
     // Forward the request to the Durable Object
     const doResponse = await doStub.fetch(doUrl.toString(), c.req.raw);

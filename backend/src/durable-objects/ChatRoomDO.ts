@@ -41,9 +41,6 @@ export class ChatRoomDO {
     this.ctx = ctx;
     this.env = env;
 
-    // Extract conversation ID from the DO name/id
-    this.conversationId = this.ctx.id.toString();
-
     // Start cleanup interval for stale connections
     this.startCleanupInterval();
   }
@@ -59,13 +56,19 @@ export class ChatRoomDO {
       return new Response('Expected WebSocket upgrade', { status: 426 });
     }
 
-    // Extract user info from query params (passed from auth middleware)
+    // Extract user info and conversation ID from query params
     const userId = url.searchParams.get('userId');
     const userName = url.searchParams.get('userName');
     const connectionId = url.searchParams.get('connectionId');
+    const conversationId = url.searchParams.get('conversationId');
 
-    if (!userId || !userName || !connectionId) {
+    if (!userId || !userName || !connectionId || !conversationId) {
       return new Response('Missing authentication parameters', { status: 401 });
+    }
+
+    // Set conversation ID if not already set
+    if (!this.conversationId) {
+      this.conversationId = conversationId;
     }
 
     // Create WebSocket pair

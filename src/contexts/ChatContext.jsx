@@ -383,7 +383,7 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  const createConversation = useCallback(async (type, participantIds, name = null) => {
+  const createConversation = async (type, participantIds, name = null) => {
     try {
       const data = {
         type,
@@ -417,7 +417,7 @@ export const ChatProvider = ({ children }) => {
       }
       throw error;
     }
-  }, []);
+  };
 
   const loadOpenChat = async () => {
     try {
@@ -441,7 +441,7 @@ export const ChatProvider = ({ children }) => {
   // MESSAGE MANAGEMENT
   // ============================================================================
 
-  const loadMessages = useCallback(async (conversationId, options = {}) => {
+  const loadMessages = async (conversationId, options = {}) => {
     try {
       const response = await api.conversations.getMessages(conversationId, options);
       const msgs = response.data.data || [];
@@ -466,7 +466,7 @@ export const ChatProvider = ({ children }) => {
       console.error('Failed to load messages:', error);
       return [];
     }
-  }, []);
+  };
 
   const sendMessage = useCallback(async (conversationId, content, messageType = 'text', metadata = null) => {
     try {
@@ -539,7 +539,7 @@ export const ChatProvider = ({ children }) => {
     }
   }, [currentUser?.id, currentUser?.name, syncChat]);
 
-  const markAsRead = useCallback(async (conversationId) => {
+  const markAsRead = async (conversationId) => {
     try {
       await api.conversations.markAsRead(conversationId);
 
@@ -552,7 +552,7 @@ export const ChatProvider = ({ children }) => {
     } catch (error) {
       console.error('Failed to mark as read:', error);
     }
-  }, []);
+  };
 
   const getMessages = (conversationId) => {
     return messages[conversationId] || [];

@@ -51,6 +51,19 @@ export const ChatProvider = ({ children }) => {
   const failureCountRef = useRef(0);
   const tabVisibleRef = useRef(true);
 
+  // Refs for stable dependencies (prevent syncChat recreation)
+  const conversationTimestampsRef = useRef(conversationTimestamps);
+  const conversationsRef = useRef(conversations);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    conversationTimestampsRef.current = conversationTimestamps;
+  }, [conversationTimestamps]);
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
   // ============================================================================
   // INITIAL LOAD
   // ============================================================================
@@ -170,8 +183,8 @@ export const ChatProvider = ({ children }) => {
     syncInProgressRef.current = true;
 
     try {
-      // Collect presence user IDs from DMs
-      const presenceUserIds = conversations
+      // Collect presence user IDs from DMs (use ref to avoid dependency)
+      const presenceUserIds = conversationsRef.current
         .filter((conv) => conv.type === 'direct')
         .flatMap((conv) => {
           const participants = conv.participants || [];
@@ -190,8 +203,10 @@ export const ChatProvider = ({ children }) => {
         syncData.activeConversationId = activeConversationId;
       }
 
-      if (conversationTimestamps && Object.keys(conversationTimestamps).length > 0) {
-        syncData.conversationTimestamps = conversationTimestamps;
+      // Use ref to avoid dependency
+      const timestamps = conversationTimestampsRef.current;
+      if (timestamps && Object.keys(timestamps).length > 0) {
+        syncData.conversationTimestamps = timestamps;
       }
 
       const uniquePresenceIds = [...new Set(presenceUserIds)].filter(Boolean).slice(0, 50);
@@ -321,7 +336,7 @@ export const ChatProvider = ({ children }) => {
     } finally {
       syncInProgressRef.current = false;
     }
-  }, [isAuthenticated, lastSyncTimestamp, activeConversationId, conversationTimestamps, conversations, currentUser]);
+  }, [isAuthenticated, lastSyncTimestamp, activeConversationId, currentUser?.id]);
 
   // ============================================================================
   // CONVERSATION MANAGEMENT

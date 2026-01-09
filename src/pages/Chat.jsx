@@ -63,6 +63,16 @@ const Chat = () => {
     [activeConversationId, messages[activeConversationId]]
   );
 
+  const enhancedMessages = useMemo(
+    () =>
+      conversationMessages.map((msg, idx) => ({
+        message: msg,
+        previousMessage: conversationMessages[idx - 1] || null,
+        nextMessage: conversationMessages[idx + 1] || null,
+      })),
+    [conversationMessages]
+  );
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversationMessages, selectedConversation]);
@@ -134,18 +144,20 @@ const Chat = () => {
     return 'Unknown';
   };
 
-  const filteredConversations = conversations
-    .filter((conv) => {
-      if (activeTab === 'direct') return conv.type === 'direct';
-      if (activeTab === 'groups') return conv.type === 'group';
-      if (activeTab === 'open') return conv.type === 'open';
-      return false;
-    })
-    .filter((conv) => {
-      if (!searchQuery) return true;
-      const name = getConversationName(conv).toLowerCase();
-      return name.includes(searchQuery.toLowerCase());
-    });
+  const filteredConversations = useMemo(() => {
+    return conversations
+      .filter((conv) => {
+        if (activeTab === 'direct') return conv.type === 'direct';
+        if (activeTab === 'groups') return conv.type === 'group';
+        if (activeTab === 'open') return conv.type === 'open';
+        return false;
+      })
+      .filter((conv) => {
+        if (!searchQuery) return true;
+        const name = getConversationName(conv).toLowerCase();
+        return name.includes(searchQuery.toLowerCase());
+      });
+  }, [conversations, activeTab, searchQuery, getConversationName]);
 
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
@@ -271,7 +283,7 @@ const Chat = () => {
     return colors[index];
   };
 
-  const ConversationItem = ({ conversation }) => {
+  const ConversationItem = memo(({ conversation }) => {
     const isActive = selectedConversation?.id === conversation.id;
     const displayName = getConversationName(conversation);
     const lastMessage = getLastMessage(conversation);
@@ -369,7 +381,7 @@ const Chat = () => {
         </div>
       </button>
     );
-  };
+  });
 
   const MessageBubble = memo(({ message, previousMessage, nextMessage }) => {
     const isOwn = message.senderId === user.id;
@@ -734,12 +746,12 @@ const Chat = () => {
             </div>
           ) : (
             <>
-              {conversationMessages.map((message, index) => (
+              {enhancedMessages.map((item) => (
                 <MessageBubble
-                  key={message.id}
-                  message={message}
-                  previousMessage={conversationMessages[index - 1]}
-                  nextMessage={conversationMessages[index + 1]}
+                  key={item.message.id}
+                  message={item.message}
+                  previousMessage={item.previousMessage}
+                  nextMessage={item.nextMessage}
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -839,7 +851,7 @@ const Chat = () => {
   );
 
   return (
-    <div className="fixed inset-0 top-14 bottom-16 md:static md:h-full flex flex-col md:flex-row bg-white dark:bg-gray-800">
+    <div className="flex flex-col md:flex-row h-full bg-white dark:bg-gray-800">
       {/* Conversation List */}
       <div
         className={`${

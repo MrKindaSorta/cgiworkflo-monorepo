@@ -82,7 +82,6 @@ export const ChatProvider = ({ children }) => {
   const [sending, setSending] = useState(false);
   const [syncError, setSyncError] = useState(null);
   const [pollingInterval, setPollingInterval] = useState(PollingState.BACKGROUND_MONITORING);
-  const [lastSyncTimestamp, setLastSyncTimestamp] = useState(null);
   const [conversationTimestamps, setConversationTimestamps] = useState({});
 
   // ============================================================================
@@ -94,6 +93,7 @@ export const ChatProvider = ({ children }) => {
   const failureCountRef = useRef(0);
   const tabVisibleRef = useRef(true);
   const retryTimeoutRef = useRef(null);
+  const lastSyncTimestampRef = useRef(null); // Use ref instead of state - doesn't need to be reactive
   const conversationTimestampsRef = useRef(conversationTimestamps);
   const conversationsRef = useRef(conversations);
   const messagesRef = useRef(messages);
@@ -189,7 +189,7 @@ export const ChatProvider = ({ children }) => {
       });
       setConversationTimestamps(timestamps);
 
-      setLastSyncTimestamp(new Date().toISOString());
+      lastSyncTimestampRef.current = new Date().toISOString();
 
       for (const conv of convList) {
         if (conv.lastMessageId) {
@@ -263,8 +263,8 @@ export const ChatProvider = ({ children }) => {
 
       const syncData = {};
 
-      if (lastSyncTimestamp) {
-        syncData.lastSync = lastSyncTimestamp;
+      if (lastSyncTimestampRef.current) {
+        syncData.lastSync = lastSyncTimestampRef.current;
       }
 
       if (activeConversationId) {
@@ -397,8 +397,8 @@ export const ChatProvider = ({ children }) => {
         });
       }
 
-      if (data.syncTimestamp && data.syncTimestamp !== lastSyncTimestamp) {
-        setLastSyncTimestamp(data.syncTimestamp);
+      if (data.syncTimestamp && data.syncTimestamp !== lastSyncTimestampRef.current) {
+        lastSyncTimestampRef.current = data.syncTimestamp;
       }
     } catch (error) {
       console.error('Sync failed:', error);
@@ -406,7 +406,7 @@ export const ChatProvider = ({ children }) => {
     } finally {
       syncInProgressRef.current = false;
     }
-  }, [isAuthenticated, lastSyncTimestamp, activeConversationId, currentUser?.id]);
+  }, [isAuthenticated, activeConversationId, currentUser?.id]); // Removed lastSyncTimestamp - using ref
 
   // Level 4: Depends on syncChat
   const sendMessage = useCallback(async (conversationId, content, messageType = 'text', metadata = null) => {

@@ -26,39 +26,52 @@ app.post('/auth-code', authenticate, async (c) => {
   try {
     const user = c.get('user');
     if (!user) {
+      console.error('[WebSocket] No user in context after authenticate middleware');
       throw new HTTPException(401, { message: 'Unauthorized' });
     }
 
+    console.log(`[WebSocket] Generating auth code for user ${user.id}`);
+
     // Generate unique auth code
     const authCode = nanoid(32);
+    console.log(`[WebSocket] Generated code: ${authCode.substring(0, 8)}...`);
 
     // Store code in KV with 30-second expiration
     const codeKey = `ws:authcode:${authCode}`;
+    const codeData = {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      franchiseId: user.franchiseId || null,
+      createdAt: Date.now(),
+    };
+
+    console.log(`[WebSocket] Storing code in KV with key: ${codeKey}`);
+
     await c.env.CACHE.put(
       codeKey,
-      JSON.stringify({
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        franchiseId: user.franchiseId,
-        createdAt: Date.now(),
-      }),
-      { expirationTtl: 30 } // 30 seconds
+      JSON.stringify(codeData),
+      { expirationTtl: 60 } // 60 seconds (KV minimum)
     );
 
-    console.log(`[WebSocket] Generated auth code for user ${user.id}`);
+    console.log(`[WebSocket] Successfully generated auth code for user ${user.id}`);
 
     return c.json({
       success: true,
       data: {
         code: authCode,
-        expiresIn: 30, // seconds
+        expiresIn: 60, // seconds (KV minimum TTL)
       },
     });
   } catch (error: any) {
+    console.error('[WebSocket] Error generating auth code:', error);
+    console.error('[WebSocket] Error stack:', error.stack);
+
     if (error instanceof HTTPException) throw error;
-    console.error('Error generating auth code:', error);
-    throw new HTTPException(500, { message: 'Failed to generate auth code' });
+
+    throw new HTTPException(500, {
+      message: `Failed to generate auth code: ${error.message || 'Unknown error'}`,
+    });
   }
 });
 
@@ -93,7 +106,7 @@ app.get('/user', async (c) => {
 
     // Verify code is not too old (additional safety check)
     const codeAge = Date.now() - (codeData.createdAt || 0);
-    if (codeAge > 35000) { // 35 seconds (5s grace period)
+    if (codeAge > 65000) { // 65 seconds (5s grace period beyond 60s TTL)
       throw new HTTPException(401, { message: 'Unauthorized: Auth code expired' });
     }
 
@@ -167,9 +180,9 @@ app.get('/chat/:conversationId', async (c) => {
     // Delete code immediately (single-use)
     await c.env.CACHE.delete(codeKey);
 
-    // Verify code is not too old
+    // Verify code is not too old (additional safety check)
     const codeAge = Date.now() - (codeData.createdAt || 0);
-    if (codeAge > 35000) { // 35 seconds
+    if (codeAge > 65000) { // 65 seconds (5s grace period beyond 60s TTL)
       throw new HTTPException(401, { message: 'Unauthorized: Auth code expired' });
     }
 

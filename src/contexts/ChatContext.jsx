@@ -62,6 +62,7 @@ export const ChatProvider = ({ children }) => {
   const failureCountRef = useRef(0);
   const tabVisibleRef = useRef(true);
   const lastSyncTimestampRef = useRef(null);
+  const syncChatRef = useRef(null);
 
   // Refs for stable dependencies (prevent syncChat recreation)
   const conversationTimestampsRef = useRef(conversationTimestamps);
@@ -349,6 +350,11 @@ export const ChatProvider = ({ children }) => {
     }
   }, [isAuthenticated, activeConversationId, currentUser?.id]);
 
+  // Keep syncChatRef updated with latest syncChat
+  useEffect(() => {
+    syncChatRef.current = syncChat;
+  }, [syncChat]);
+
   // ============================================================================
   // CONVERSATION MANAGEMENT
   // ============================================================================
@@ -521,7 +527,7 @@ export const ChatProvider = ({ children }) => {
       );
 
       // Trigger immediate sync to get updates from other users
-      setTimeout(() => syncChat(), 500);
+      setTimeout(() => syncChatRef.current?.(), 500);
 
       return actualMessage;
     } catch (error) {
@@ -537,7 +543,7 @@ export const ChatProvider = ({ children }) => {
     } finally {
       setSending(false);
     }
-  }, [currentUser?.id, currentUser?.name, syncChat]);
+  }, [currentUser?.id, currentUser?.name]);
 
   const markAsRead = async (conversationId) => {
     try {

@@ -1,4 +1,4 @@
-import { useState, useRef, memo } from 'react';
+import { useState, useRef, memo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Send, Plus, Image, Camera, Paperclip } from 'lucide-react';
 
@@ -7,9 +7,41 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload }) 
   const [message, setMessage] = useState('');
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const attachmentMenuRef = useRef(null);
+  const attachmentButtonRef = useRef(null);
   const photoInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Click-away and ESC key detection for attachment menu
+  useEffect(() => {
+    if (!showAttachmentMenu) return;
+
+    const handleClickOutside = (event) => {
+      if (
+        attachmentMenuRef.current &&
+        !attachmentMenuRef.current.contains(event.target) &&
+        attachmentButtonRef.current &&
+        !attachmentButtonRef.current.contains(event.target)
+      ) {
+        setShowAttachmentMenu(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setShowAttachmentMenu(false);
+        attachmentButtonRef.current?.focus();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [showAttachmentMenu]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -31,9 +63,13 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload }) 
         {/* Attachment Button */}
         <div className="relative">
           <button
+            ref={attachmentButtonRef}
             type="button"
             onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
-            disabled={uploading}
+            disabled={sending || uploading}
+            aria-label="Attach files"
+            aria-expanded={showAttachmentMenu}
+            aria-haspopup="menu"
             className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors flex-shrink-0 disabled:opacity-50"
           >
             <Plus className="w-6 h-6 text-gray-600 dark:text-gray-400" />
@@ -43,6 +79,8 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload }) 
           {showAttachmentMenu && (
             <div
               ref={attachmentMenuRef}
+              role="menu"
+              aria-label="Attachment options"
               className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-2 min-w-[200px]"
             >
               <button
@@ -131,6 +169,7 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload }) 
         accept="image/*"
         multiple
         className="hidden"
+        aria-hidden="true"
         onChange={(e) => {
           handleFileSelect(e.target.files, 'image');
           e.target.value = '';
@@ -142,6 +181,7 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload }) 
         accept="image/*"
         capture="environment"
         className="hidden"
+        aria-hidden="true"
         onChange={(e) => {
           handleFileSelect(e.target.files, 'image');
           e.target.value = '';
@@ -151,6 +191,7 @@ const MessageInput = memo(({ onSendMessage, sending, uploading, onFileUpload }) 
         ref={fileInputRef}
         type="file"
         className="hidden"
+        aria-hidden="true"
         onChange={(e) => {
           handleFileSelect(e.target.files, 'file');
           e.target.value = '';

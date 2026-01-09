@@ -5,11 +5,14 @@
 
 export const formatTime = (timestamp) => {
   const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return '-';
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
 export const formatDate = (timestamp) => {
   const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return '-';
+
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -39,12 +42,14 @@ export const shouldGroupMessage = (currentMsg, previousMsg) => {
 };
 
 export const getInitials = (name) => {
+  if (!name || name.trim() === '') return '?';
   return name
     .split(' ')
+    .filter(n => n.length > 0)
     .map((n) => n[0])
     .join('')
     .toUpperCase()
-    .substring(0, 2);
+    .substring(0, 2) || '?';
 };
 
 export const getAvatarColor = (id) => {
@@ -58,6 +63,8 @@ export const getAvatarColor = (id) => {
     'from-indigo-500 to-indigo-600',
     'from-teal-500 to-teal-600',
   ];
-  const index = parseInt(id) % colors.length;
+  // Hash function that works with both numeric IDs and UUIDs
+  const hash = String(id).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const index = hash % colors.length;
   return colors[index];
 };

@@ -71,6 +71,8 @@ const Chat = () => {
   const [lightboxImage, setLightboxImage] = useState(null);
   const messagesEndRef = useRef(null);
   const scrollContainerRef = useRef(null);
+  const markAsReadTimeoutRef = useRef(null);
+  const uploadAbortControllerRef = useRef(null);
 
   // Memoize to prevent re-renders when conversations array updates
   const selectedConversation = useMemo(
@@ -79,7 +81,11 @@ const Chat = () => {
   );
 
   // CRITICAL: Only recalculate when THIS conversation's messages change
-  const conversationMessages = activeConversationId ? messages[activeConversationId] || [] : [];
+  // Memoized to prevent unnecessary re-renders when messages object reference changes
+  const conversationMessages = useMemo(
+    () => (activeConversationId ? messages[activeConversationId] || [] : []),
+    [messages, activeConversationId]
+  );
 
   // Simple auto-scroll to bottom on new messages
   useEffect(() => {
@@ -94,6 +100,32 @@ const Chat = () => {
     }
   }, [conversationMessages.length]);
 
+  // Handle mobile keyboard visibility changes (viewport resize)
+  useEffect(() => {
+    let resizeTimeout;
+
+    const handleResize = () => {
+      // Debounce resize events
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        if (messagesEndRef.current && scrollContainerRef.current) {
+          // Scroll to bottom when keyboard opens/closes
+          messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      }, 100);
+    };
+
+    // Listen for viewport resize (keyboard open/close on mobile)
+    window.visualViewport?.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      clearTimeout(resizeTimeout);
+      window.visualViewport?.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   // Always scroll to bottom when conversation changes
   useEffect(() => {
     if (scrollContainerRef.current) {
@@ -101,12 +133,49 @@ const Chat = () => {
     }
   }, [activeConversationId]);
 
-  const getOtherParticipant = (conversation) => {
+  // Debounced markAsRead when conversation changes
+  useEffect(() => {
+    // Clear any pending markAsRead
+    if (markAsReadTimeoutRef.current) {
+      clearTimeout(markAsReadTimeoutRef.current);
+    }
+
+    // Only mark as read if there's an active conversation
+    if (activeConversationId) {
+      markAsReadTimeoutRef.current = setTimeout(() => {
+        markAsRead(activeConversationId);
+      }, 300); // 300ms debounce
+    }
+
+    // Cleanup on unmount or conversation change
+    return () => {
+      if (markAsReadTimeoutRef.current) {
+        clearTimeout(markAsReadTimeoutRef.current);
+      }
+    };
+  }, [activeConversationId, markAsRead]);
+
+  // Memoized getOtherParticipant with proper dependencies
+  const getOtherParticipant = useCallback((conversation) => {
     if (conversation.type !== 'direct') return null;
     const participants = conversation.participants || [];
+
+    // Add validation for empty or malformed participants
+    if (participants.length < 2) {
+      console.warn('Direct conversation has less than 2 participants:', conversation.id);
+      return null;
+    }
+
     const otherId = participants.find((p) => p.userId !== user.id)?.userId;
+
+    // Early return if otherId not found
+    if (!otherId) {
+      console.warn('Could not find other participant in conversation:', conversation.id);
+      return null;
+    }
+
     return users.find((u) => u.id === otherId);
-  };
+  }, [users, user.id]);
 
   const getConversationName = useCallback((conversation) => {
     if (conversation.type === 'open') return 'Open Chat';
@@ -116,7 +185,7 @@ const Chat = () => {
       return otherUser?.name || 'Unknown User';
     }
     return 'Unknown';
-  }, [users, user.id]);
+  }, [users, user.id, getOtherParticipant]);
 
   const filteredConversations = useMemo(() => {
     return conversations
@@ -147,16 +216,34 @@ const Chat = () => {
   const handleFileUpload = useCallback(async (files, type = 'file') => {
     if (!files || files.length === 0 || !activeConversationId || uploading) return;
 
+    // Cancel any previous uploads
+    if (uploadAbortControllerRef.current) {
+      uploadAbortControllerRef.current.abort();
+    }
+
+    // Create new abort controller for this upload batch
+    const abortController = new AbortController();
+    uploadAbortControllerRef.current = abortController;
+
+    // Capture conversationId at upload start to prevent race condition
+    const targetConversationId = activeConversationId;
+
     setUploading(true);
 
     try {
       const fileCount = files.length;
-      for (const file of files) {
+      for (let i = 0; i < fileCount; i++) {
+        // Check if upload was aborted
+        if (abortController.signal.aborted) {
+          throw new Error('Upload cancelled');
+        }
+
+        const file = files[i];
         // Upload file to R2
         const uploadResponse = await api.uploads.uploadFile(file, type);
         const { url, filename, size: fileSize, type: fileType } = uploadResponse.data.data;
 
-        // Send message with attachment
+        // Send message with attachment to the ORIGINAL conversation
         const metadata = JSON.stringify({
           url,
           filename,
@@ -165,7 +252,7 @@ const Chat = () => {
         });
 
         const content = type === 'image' ? `📷 ${filename}` : `📎 ${filename}`;
-        await sendMessage(activeConversationId, content, type === 'image' ? 'image' : 'file', metadata);
+        await sendMessage(targetConversationId, content, type === 'image' ? 'image' : 'file', metadata);
       }
 
       // Show success message
@@ -175,12 +262,29 @@ const Chat = () => {
         toast.success(`${fileCount} files uploaded successfully!`);
       }
     } catch (error) {
-      console.error('Failed to upload file:', error);
-      toast.error('Failed to upload file. Please try again.');
+      if (error.message === 'Upload cancelled') {
+        toast.info('File upload cancelled');
+      } else {
+        console.error('Failed to upload file:', error);
+        toast.error('Failed to upload file. Please try again.');
+      }
     } finally {
       setUploading(false);
+      if (uploadAbortControllerRef.current === abortController) {
+        uploadAbortControllerRef.current = null;
+      }
     }
   }, [activeConversationId, uploading, sendMessage]);
+
+  // Cancel uploads when conversation changes
+  useEffect(() => {
+    return () => {
+      if (uploadAbortControllerRef.current) {
+        uploadAbortControllerRef.current.abort();
+        uploadAbortControllerRef.current = null;
+      }
+    };
+  }, [activeConversationId]);
 
   const getLastMessage = (conversation) => {
     const convMessages = getMessages(conversation.id);
@@ -210,7 +314,6 @@ const Chat = () => {
       <button
         onClick={() => {
           setActiveConversationId(conversation.id);
-          markAsRead(conversation.id);
         }}
         aria-label={`Conversation with ${displayName}${
           hasUnread ? `, ${conversation.unreadCount} unread messages` : ''
@@ -314,6 +417,10 @@ const Chat = () => {
     const isLastInGroup = !shouldGroupMessage(nextMessage, message);
     const showDateSeparator = shouldShowDateSeparator(message, previousMessage);
 
+    // Memoize date formatting to prevent repeated Date object creation
+    const formattedTime = useMemo(() => formatTime(message.timestamp), [message.timestamp]);
+    const formattedDate = useMemo(() => formatDate(message.timestamp), [message.timestamp]);
+
     let attachment = null;
     if (message.metadata) {
       try {
@@ -331,14 +438,14 @@ const Chat = () => {
         {showDateSeparator && (
           <div className="flex items-center justify-center my-6">
             <div className="px-4 py-1.5 bg-gray-200 dark:bg-gray-700 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300">
-              {formatDate(message.timestamp)}
+              {formattedDate}
             </div>
           </div>
         )}
 
         <div
           role="article"
-          aria-label={`Message from ${sender?.name} at ${formatTime(message.timestamp)}`}
+          aria-label={`Message from ${sender?.name} at ${formattedTime}`}
           className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'} ${
             isGrouped ? 'mt-1' : 'mt-4'
           }`}
@@ -420,7 +527,12 @@ const Chat = () => {
               ) : (
                 <p
                   className="text-[15px] leading-relaxed whitespace-pre-wrap break-words"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(message.content) }}
+                  dangerouslySetInnerHTML={{
+                    __html: DOMPurify.sanitize(message.content, {
+                      ALLOWED_TAGS: [], // Strip ALL HTML tags
+                      ALLOWED_ATTR: [], // Strip ALL attributes
+                    }),
+                  }}
                 />
               )}
             </div>
@@ -428,7 +540,7 @@ const Chat = () => {
             {isLastInGroup && (
               <div className="flex items-center gap-1.5 mt-1 px-1">
                 <span className="text-[11px] text-gray-500 dark:text-gray-500">
-                  {formatTime(message.timestamp)}
+                  {formattedTime}
                 </span>
                 {isOwn && (
                   <span className="text-[11px]">
@@ -451,6 +563,8 @@ const Chat = () => {
     return (
       prevProps.message.id === nextProps.message.id &&
       prevProps.message.content === nextProps.message.content &&
+      prevProps.message.timestamp === nextProps.message.timestamp &&
+      prevProps.message.metadata === nextProps.message.metadata &&
       prevProps.message._isPending === nextProps.message._isPending &&
       prevProps.message._failed === nextProps.message._failed &&
       prevProps.previousMessage?.id === nextProps.previousMessage?.id &&
@@ -526,10 +640,39 @@ const Chat = () => {
 
   // Image Lightbox Component
   const ImageLightbox = () => {
+    const previousFocusRef = useRef(null);
+
+    // Handle ESC key press
+    useEffect(() => {
+      if (!lightboxImage) return;
+
+      // Store previous focus element
+      previousFocusRef.current = document.activeElement;
+
+      const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+          setLightboxImage(null);
+        }
+      };
+
+      document.addEventListener('keydown', handleEscape);
+
+      // Cleanup and restore focus
+      return () => {
+        document.removeEventListener('keydown', handleEscape);
+        if (previousFocusRef.current && previousFocusRef.current.focus) {
+          previousFocusRef.current.focus();
+        }
+      };
+    }, [lightboxImage]);
+
     if (!lightboxImage) return null;
 
     return (
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Image preview"
         className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm"
         onClick={() => setLightboxImage(null)}
       >
@@ -599,7 +742,7 @@ const Chat = () => {
                   getInitials(displayName)
                 )}
               </div>
-              {selectedConversation.type === 'direct' && (
+              {selectedConversation.type === 'direct' && otherUser && isUserOnline(otherUser.id) && (
                 <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full"></div>
               )}
             </div>

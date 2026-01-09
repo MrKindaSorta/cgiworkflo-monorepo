@@ -490,12 +490,17 @@ export const ChatProvider = ({ children }) => {
         [conversationId]: [...(prev[conversationId] || []), tempMessage],
       }));
 
-      // Send to API
-      const response = await api.conversations.sendMessage(conversationId, {
+      // Send to API - only include metadata if it exists
+      const payload = {
         content,
         messageType,
-        metadata,
-      });
+      };
+
+      if (metadata) {
+        payload.metadata = metadata;
+      }
+
+      const response = await api.conversations.sendMessage(conversationId, payload);
 
       const actualMessage = response.data.data;
 

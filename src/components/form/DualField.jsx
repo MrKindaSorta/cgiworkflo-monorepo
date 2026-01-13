@@ -122,14 +122,14 @@ const DualField = ({ field, value, onChange, error }) => {
       </label>
 
       <div className="space-y-3">
-        {items.map((item, index) => (
+        {(items || []).filter(item => item != null).map((item, index) => (
           <div key={index} className="flex items-center space-x-2">
             {/* Value - Smart Dropdown */}
             <div className="flex-1">
               <CreatableSelect
                 isClearable
                 options={valueOptions}
-                value={item.value ? { value: item.value, label: item.value } : null}
+                value={item && item.value ? { value: item.value, label: item.value } : null}
                 onChange={(selected) =>
                   handleItemChange(index, selected ? selected.value : '', undefined)
                 }
@@ -145,7 +145,7 @@ const DualField = ({ field, value, onChange, error }) => {
             {/* Unit - Fixed Dropdown */}
             <div className="w-32">
               <select
-                value={item.unit}
+                value={item?.unit || ''}
                 onChange={(e) => handleItemChange(index, undefined, e.target.value)}
                 className="w-full px-3 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
               >

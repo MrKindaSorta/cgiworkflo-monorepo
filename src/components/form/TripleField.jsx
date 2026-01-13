@@ -123,14 +123,14 @@ const TripleField = ({ field, value, onChange, error }) => {
       </label>
 
       <div className="space-y-3">
-        {items.map((item, index) => (
+        {(items || []).filter(item => item != null).map((item, index) => (
           <div key={index} className="grid grid-cols-12 gap-2 items-start">
             {/* Value - Smart Dropdown (5 cols) */}
             <div className="col-span-5">
               <CreatableSelect
                 isClearable
                 options={valueOptions}
-                value={item.value ? { value: item.value, label: item.value } : null}
+                value={item && item.value ? { value: item.value, label: item.value } : null}
                 onChange={(selected) =>
                   handleItemChange(index, selected ? selected.value : '', undefined, undefined)
                 }
@@ -146,7 +146,7 @@ const TripleField = ({ field, value, onChange, error }) => {
             {/* Unit - Fixed Dropdown (3 cols) */}
             <div className="col-span-3">
               <select
-                value={item.unit}
+                value={item?.unit || ''}
                 onChange={(e) => handleItemChange(index, undefined, e.target.value, undefined)}
                 className="w-full px-3 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
               >
@@ -166,7 +166,7 @@ const TripleField = ({ field, value, onChange, error }) => {
               <input
                 type="number"
                 step="0.01"
-                value={item.amount}
+                value={item?.amount || ''}
                 onChange={(e) => handleItemChange(index, undefined, undefined, e.target.value)}
                 placeholder={field.amountLabel || 'Amount'}
                 className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"

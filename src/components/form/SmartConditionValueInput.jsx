@@ -153,7 +153,7 @@ const SmartConditionValueInput = ({
         isClearable
         options={options}
         value={selectValue}
-        onChange={(selected) => onChange((selected || []).map((s) => s.value))}
+        onChange={(selected) => onChange((selected || []).filter(s => s && s.value !== undefined).map((s) => s.value))}
         placeholder="Select values..."
         styles={getCompactCustomStyles(true)}
         className="react-select-container"
@@ -179,7 +179,7 @@ const SmartConditionValueInput = ({
         isClearable
         options={options}
         value={selectValue}
-        onChange={(selected) => onChange((selected || []).map((s) => s.value))}
+        onChange={(selected) => onChange((selected || []).filter(s => s && s.value !== undefined).map((s) => s.value))}
         placeholder="Select values..."
         styles={getCompactCustomStyles(true)}
         className="react-select-container"
@@ -232,7 +232,7 @@ const SmartConditionValueInput = ({
         isClearable
         options={options}
         value={selectValue}
-        onChange={(selected) => onChange((selected || []).map((s) => s.value))}
+        onChange={(selected) => onChange((selected || []).filter(s => s && s.value !== undefined).map((s) => s.value))}
         placeholder="Select or create..."
         formatCreateLabel={(inputValue) => `Create "${inputValue}"`}
         styles={getCompactCustomStyles(true)}

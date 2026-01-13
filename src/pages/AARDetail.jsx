@@ -19,7 +19,7 @@ const AARDetail = () => {
     const loadAAR = async () => {
       const aarData = await getAAR(id);
       if (aarData) {
-        setAAR(aarData);
+        setAAR(aarData.aar);  // Extract the aar object from { aar, photos }
         incrementViews(id);
       }
     };

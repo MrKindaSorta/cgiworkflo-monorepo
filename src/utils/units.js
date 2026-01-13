@@ -52,14 +52,34 @@ export const saveUnitPreference = (preferences) => {
 };
 
 // Convert and format for display
-export const displayArea = (areaObj) => {
+export const displayArea = (areaData) => {
+  // Handle null/undefined
+  if (!areaData) return '--';
+
   const prefs = getUnitPreference();
+
+  // Handle both object {value, unit} and array [{value, unit}] (for multidualfield)
+  const areaObj = Array.isArray(areaData) ? areaData[0] : areaData;
+
+  // Check if the extracted object has required properties
+  if (!areaObj || !areaObj.value || !areaObj.unit) return '--';
+
   const converted = convertArea(areaObj.value, areaObj.unit, prefs.area);
   return formatArea(converted, prefs.area);
 };
 
-export const displayLiquid = (liquidObj) => {
+export const displayLiquid = (liquidData) => {
+  // Handle null/undefined
+  if (!liquidData) return '--';
+
   const prefs = getUnitPreference();
+
+  // Handle both object {value, unit} and array [{value, unit}] (for multitriplefield)
+  const liquidObj = Array.isArray(liquidData) ? liquidData[0] : liquidData;
+
+  // Check if the extracted object has required properties
+  if (!liquidObj || !liquidObj.value || !liquidObj.unit) return '--';
+
   const converted = convertLiquid(liquidObj.value, liquidObj.unit, prefs.liquid);
   return formatLiquid(converted, prefs.liquid);
 };

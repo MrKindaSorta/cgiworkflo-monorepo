@@ -71,17 +71,24 @@ app.post('/', async (c) => {
     }
 
     // Fetch active custom form schema for validation
-    const formResult = await c.env.DB.prepare(
+    let formResult = await c.env.DB.prepare(
       'SELECT id, form_schema FROM custom_forms WHERE id = ? AND is_active = 1 AND deleted_at IS NULL'
     )
       .bind(formId)
       .first();
 
+    // Fallback: Get any active form if specific ID not found
+    if (!formResult) {
+      formResult = await c.env.DB.prepare(
+        'SELECT id, form_schema FROM custom_forms WHERE is_active = 1 AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 1'
+      ).first();
+    }
+
     if (!formResult) {
       return c.json(
         {
           success: false,
-          message: 'Active form not found',
+          message: 'No active form found',
         },
         400
       );

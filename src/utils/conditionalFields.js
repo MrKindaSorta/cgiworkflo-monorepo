@@ -147,8 +147,18 @@ export function shouldShowField(field, formValues) {
     return true;
   }
 
-  // Evaluate each condition
-  const results = conditions.map((condition) => evaluateCondition(condition, formValues));
+  // Filter out invalid conditions (empty fieldId or operator) before evaluation
+  const validConditions = conditions.filter(
+    (condition) => condition && condition.fieldId && condition.operator
+  );
+
+  // If no valid conditions after filtering, show field
+  if (validConditions.length === 0) {
+    return true;
+  }
+
+  // Evaluate each valid condition
+  const results = validConditions.map((condition) => evaluateCondition(condition, formValues));
 
   // Combine results based on operator
   if (operator === 'AND') {

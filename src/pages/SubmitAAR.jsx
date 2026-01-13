@@ -37,8 +37,11 @@ const SubmitAAR = () => {
         const response = await api.customForms.getActive();
 
         if (response.data.form) {
-          // Use database schema
-          setFormSchema(response.data.form.schema);
+          // Use database schema with form ID included
+          setFormSchema({
+            ...response.data.form.schema,
+            formId: response.data.form.id, // Include the form ID from database
+          });
         } else {
           // No form in database - check localStorage
           const localSchema = localStorage.getItem('aar-form-schema');

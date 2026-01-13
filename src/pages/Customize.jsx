@@ -162,7 +162,7 @@ const SECTIONS = [
 
 // Default form schema
 const DEFAULT_SCHEMA = {
-  formId: 'aar-form',
+  formId: null, // Will be assigned when saved to database
   version: '1.0',
   sections: SECTIONS,
   fields: [
@@ -335,6 +335,28 @@ const Customize = () => {
 
   // Save schema to database
   const saveSchema = async () => {
+    // Validate for invalid conditions (empty fieldId or operator)
+    const fieldsWithInvalidConditions = schema.fields.filter((field) => {
+      if (!field.conditional || !field.conditional.enabled) {
+        return false;
+      }
+      const { conditions = [] } = field.conditional;
+      return conditions.some(
+        (condition) => !condition || !condition.fieldId || !condition.operator
+      );
+    });
+
+    if (fieldsWithInvalidConditions.length > 0) {
+      const fieldNames = fieldsWithInvalidConditions
+        .map((field) => field.label || field.id)
+        .join(', ');
+
+      alert(
+        `Invalid conditions detected!\n\nThe following fields have incomplete conditional logic:\n${fieldNames}\n\nPlease complete or remove the conditional logic before saving.`
+      );
+      return;
+    }
+
     // Validate for circular dependencies
     const circularFields = detectCircularDependencies(schema.fields);
 
@@ -351,14 +373,26 @@ const Customize = () => {
 
     try {
       setLoading(true);
-      await api.customForms.updateActive(
+      const response = await api.customForms.updateActive(
         schema,
         'AAR Submission Form',
         'Customized AAR submission form'
       );
 
-      // Keep localStorage in sync as backup
-      localStorage.setItem('aar-form-schema', JSON.stringify(schema));
+      // Capture the returned formId and update the schema
+      if (response.data.success && response.data.formId) {
+        const updatedSchema = {
+          ...schema,
+          formId: response.data.formId,
+        };
+        setSchema(updatedSchema);
+
+        // Keep localStorage in sync as backup
+        localStorage.setItem('aar-form-schema', JSON.stringify(updatedSchema));
+      } else {
+        // Keep localStorage in sync as backup (without formId)
+        localStorage.setItem('aar-form-schema', JSON.stringify(schema));
+      }
 
       alert('Form schema saved successfully!');
     } catch (error) {

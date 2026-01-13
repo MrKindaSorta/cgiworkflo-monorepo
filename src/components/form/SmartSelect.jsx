@@ -40,7 +40,7 @@ const SmartSelect = ({ field, value, onChange, error }) => {
   // Handle change
   const handleChange = (selected) => {
     if (field.type === 'smartmultiselect') {
-      onChange((selected || []).map((s) => s.value));
+      onChange((selected || []).filter(s => s && s.value !== undefined).map((s) => s.value));
     } else {
       onChange(selected ? selected.value : '');
     }

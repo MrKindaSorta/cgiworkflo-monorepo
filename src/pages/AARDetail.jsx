@@ -16,11 +16,14 @@ const AARDetail = () => {
   const [comment, setComment] = useState('');
 
   useEffect(() => {
-    const aarData = getAAR(id);
-    if (aarData) {
-      setAAR(aarData);
-      incrementViews(id);
-    }
+    const loadAAR = async () => {
+      const aarData = await getAAR(id);
+      if (aarData) {
+        setAAR(aarData);
+        incrementViews(id);
+      }
+    };
+    loadAAR();
   }, [id]);
 
   const handleUpvote = () => {

@@ -85,7 +85,20 @@ export const AARProvider = ({ children }) => {
     setError(null);
     try {
       const response = await api.aars.get(aarId);
-      return response.data.data;
+      const { aar, photos } = response.data.data;
+
+      // Flatten form_data into top-level AAR properties for easier access
+      // This allows components to use aar.damageType instead of aar.form_data.damageType
+      if (aar && aar.form_data) {
+        const flattenedAAR = {
+          ...aar,
+          ...aar.form_data,  // Spread all form fields to top level
+          form_data: aar.form_data  // Keep original for reference
+        };
+        return { aar: flattenedAAR, photos };
+      }
+
+      return { aar, photos };
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Failed to load AAR';
       setError(errorMessage);

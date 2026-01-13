@@ -14,6 +14,7 @@ import chatSyncRoutes from './routes/chat-sync';
 import uploadsRoutes from './routes/uploads';
 import filesRoutes from './routes/files';
 import websocketRoutes from './routes/websocket';
+import aarRoutes from './routes/aars';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -101,24 +102,15 @@ app.route('/api/uploads', uploadsRoutes);
 // File serving routes (public - serves uploaded files from R2)
 app.route('/files', filesRoutes);
 
+// AAR routes (protected)
+app.route('/api/aars', aarRoutes);
+
 // TODO: Register additional routes as they are implemented
-// import aarRoutes from './routes/aars';
 // import categoryRoutes from './routes/categories';
 // import analyticsRoutes from './routes/analytics';
 
-// app.route('/api/users', userRoutes);
-// app.route('/api/aars', aarRoutes);
-// app.route('/api/conversations', messageRoutes);
 // app.route('/api/categories', categoryRoutes);
 // app.route('/api/analytics', analyticsRoutes);
-
-// Temporary stub routes (to be replaced)
-app.get('/api/aars', (c) => {
-  return c.json({
-    message: 'AARs endpoint - To be implemented',
-    data: [],
-  });
-});
 
 // ============================================================================
 // ERROR HANDLING

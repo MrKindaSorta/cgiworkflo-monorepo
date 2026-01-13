@@ -1,155 +1,233 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { mockAARs } from '../mocks/aars';
-import { STORAGE_KEYS, getFromStorage, saveToStorage } from '../utils/localStorage';
+import { createContext, useContext, useState } from 'react';
+import { api } from '../lib/api-client';
 
 const AARContext = createContext(null);
 
 export const AARProvider = ({ children }) => {
   const [aars, setAARs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+  });
 
-  useEffect(() => {
-    // Load AARs from localStorage or initialize with mock data
-    const savedAARs = getFromStorage(STORAGE_KEYS.AARS);
-    if (savedAARs) {
-      setAARs(savedAARs);
-    } else {
-      setAARs(mockAARs);
-      saveToStorage(STORAGE_KEYS.AARS, mockAARs);
+  /**
+   * Load AARs from API with optional filters
+   * @param {Object} filters - Filter parameters (search, category, material, damageType, dateFrom, dateTo, userId, sortBy, page, limit)
+   * @returns {Promise} Resolves with AAR data and pagination info
+   */
+  const loadAARs = async (filters = {}) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.aars.list(filters);
+      const { aars: loadedAARs, pagination: paginationInfo } = response.data.data;
+
+      // If it's a paginated request (page > 1), append to existing, otherwise replace
+      if (filters.page && filters.page > 1) {
+        setAARs(prev => [...prev, ...loadedAARs]);
+      } else {
+        setAARs(loadedAARs);
+      }
+
+      setPagination(paginationInfo);
+      return response.data;
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to load AARs';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
     }
-  }, []);
-
-  const createAAR = (aarData) => {
-    const newAAR = {
-      ...aarData,
-      id: Date.now().toString(),
-      upvotes: 0,
-      downvotes: 0,
-      comments: [],
-      views: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    const updatedAARs = [newAAR, ...aars];
-    setAARs(updatedAARs);
-    saveToStorage(STORAGE_KEYS.AARS, updatedAARs);
-    return newAAR;
   };
 
-  const updateAAR = (aarId, updates) => {
-    const updatedAARs = aars.map((aar) =>
-      aar.id === aarId ? { ...aar, ...updates, updatedAt: new Date().toISOString() } : aar
+  /**
+   * Create new AAR with form data and photos
+   * @param {FormData} formData - FormData object containing form data, formId, formVersion, photos, and photoMetadata
+   * @param {Object} config - Optional axios config for upload progress tracking
+   * @returns {Promise} Resolves with created AAR data
+   */
+  const createAAR = async (formData, config = {}) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.aars.create(formData, config);
+      const createdAAR = response.data.data.aar;
+
+      // Optionally prepend to local state (or reload from API)
+      setAARs(prev => [createdAAR, ...prev]);
+
+      return createdAAR;
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to create AAR';
+      const validationErrors = err.response?.data?.errors;
+      setError(errorMessage);
+
+      // Re-throw with validation errors if present
+      const error = new Error(errorMessage);
+      error.validationErrors = validationErrors;
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Get single AAR by ID (with view tracking)
+   * @param {string} aarId - AAR ID
+   * @returns {Promise} Resolves with AAR data and photos
+   */
+  const getAAR = async (aarId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.aars.get(aarId);
+      return response.data.data;
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to load AAR';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Update existing AAR
+   * @param {string} aarId - AAR ID
+   * @param {Object} updates - Updated data
+   * @returns {Promise} Resolves with updated AAR data
+   */
+  const updateAAR = async (aarId, updates) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.aars.update(aarId, updates);
+      const updatedAAR = response.data.data.aar;
+
+      // Update local state
+      setAARs(prev => prev.map(aar => (aar.id === aarId ? updatedAAR : aar)));
+
+      return updatedAAR;
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to update AAR';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Soft delete AAR
+   * @param {string} aarId - AAR ID
+   * @returns {Promise} Resolves when deletion is complete
+   */
+  const deleteAAR = async (aarId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await api.aars.delete(aarId);
+
+      // Remove from local state
+      setAARs(prev => prev.filter(aar => aar.id !== aarId));
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to delete AAR';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Search and filter AARs (convenience wrapper for loadAARs)
+   * @param {string} query - Search query
+   * @param {Object} filters - Additional filters
+   * @returns {Promise} Resolves with filtered AAR data
+   */
+  const searchAARs = async (query, filters = {}) => {
+    return loadAARs({ search: query, ...filters });
+  };
+
+  /**
+   * Upvote an AAR (to be implemented on backend)
+   * @param {string} aarId - AAR ID
+   * @param {string} reason - Optional reason for upvote
+   */
+  const upvoteAAR = async (aarId, reason = '') => {
+    // TODO: Implement when backend endpoint is ready
+    // POST /api/aars/:id/vote { voteType: 'upvote', reason }
+    console.warn('upvoteAAR: Backend endpoint not yet implemented');
+
+    // Optimistic update for now
+    setAARs(prev =>
+      prev.map(aar =>
+        aar.id === aarId ? { ...aar, upvotes: aar.upvotes + 1 } : aar
+      )
     );
-    setAARs(updatedAARs);
-    saveToStorage(STORAGE_KEYS.AARS, updatedAARs);
   };
 
-  const deleteAAR = (aarId) => {
-    const updatedAARs = aars.filter((aar) => aar.id !== aarId);
-    setAARs(updatedAARs);
-    saveToStorage(STORAGE_KEYS.AARS, updatedAARs);
-  };
+  /**
+   * Downvote an AAR (to be implemented on backend)
+   * @param {string} aarId - AAR ID
+   * @param {string} reason - Optional reason for downvote
+   */
+  const downvoteAAR = async (aarId, reason = '') => {
+    // TODO: Implement when backend endpoint is ready
+    // POST /api/aars/:id/vote { voteType: 'downvote', reason }
+    console.warn('downvoteAAR: Backend endpoint not yet implemented');
 
-  const getAAR = (aarId) => {
-    return aars.find((aar) => aar.id === aarId);
-  };
-
-  const upvoteAAR = (aarId, reason = '') => {
-    const updatedAARs = aars.map((aar) =>
-      aar.id === aarId ? { ...aar, upvotes: aar.upvotes + 1 } : aar
+    // Optimistic update for now
+    setAARs(prev =>
+      prev.map(aar =>
+        aar.id === aarId ? { ...aar, downvotes: aar.downvotes + 1 } : aar
+      )
     );
-    setAARs(updatedAARs);
-    saveToStorage(STORAGE_KEYS.AARS, updatedAARs);
   };
 
-  const downvoteAAR = (aarId, reason = '') => {
-    const updatedAARs = aars.map((aar) =>
-      aar.id === aarId ? { ...aar, downvotes: aar.downvotes + 1 } : aar
-    );
-    setAARs(updatedAARs);
-    saveToStorage(STORAGE_KEYS.AARS, updatedAARs);
+  /**
+   * Add comment to an AAR (to be implemented on backend)
+   * @param {string} aarId - AAR ID
+   * @param {Object} comment - Comment data
+   */
+  const addComment = async (aarId, comment) => {
+    // TODO: Implement when backend endpoint is ready
+    // POST /api/aars/:id/comments { content }
+    console.warn('addComment: Backend endpoint not yet implemented');
   };
 
-  const addComment = (aarId, comment) => {
-    const newComment = {
-      id: Date.now().toString(),
-      ...comment,
-      thumbsUp: 0,
-      thumbsDown: 0,
-      createdAt: new Date().toISOString(),
-    };
-    const updatedAARs = aars.map((aar) =>
-      aar.id === aarId ? { ...aar, comments: [...(aar.comments || []), newComment] } : aar
-    );
-    setAARs(updatedAARs);
-    saveToStorage(STORAGE_KEYS.AARS, updatedAARs);
-  };
-
+  /**
+   * Increment view count (handled automatically by getAAR on backend)
+   * @param {string} aarId - AAR ID (deprecated - views are tracked server-side)
+   */
   const incrementViews = (aarId) => {
-    const updatedAARs = aars.map((aar) =>
-      aar.id === aarId ? { ...aar, views: (aar.views || 0) + 1 } : aar
-    );
-    setAARs(updatedAARs);
-    saveToStorage(STORAGE_KEYS.AARS, updatedAARs);
-  };
-
-  const searchAARs = (query, filters = {}) => {
-    let filtered = [...aars];
-
-    // Full-text search
-    if (query) {
-      const lowerQuery = query.toLowerCase();
-      filtered = filtered.filter((aar) => {
-        return (
-          aar.category?.toLowerCase().includes(lowerQuery) ||
-          aar.subCategory?.toLowerCase().includes(lowerQuery) ||
-          aar.model?.toLowerCase().includes(lowerQuery) ||
-          aar.material?.toLowerCase().includes(lowerQuery) ||
-          aar.damageDescription?.toLowerCase().includes(lowerQuery) ||
-          aar.processDescription?.toLowerCase().includes(lowerQuery)
-        );
-      });
-    }
-
-    // Apply filters
-    if (filters.category) {
-      filtered = filtered.filter((aar) => aar.category === filters.category);
-    }
-    if (filters.subCategory) {
-      filtered = filtered.filter((aar) => aar.subCategory === filters.subCategory);
-    }
-    if (filters.material) {
-      filtered = filtered.filter((aar) => aar.material === filters.material);
-    }
-    if (filters.dateFrom) {
-      filtered = filtered.filter((aar) => new Date(aar.createdAt) >= new Date(filters.dateFrom));
-    }
-    if (filters.dateTo) {
-      filtered = filtered.filter((aar) => new Date(aar.createdAt) <= new Date(filters.dateTo));
-    }
-
-    // Sort by relevance or date
-    if (filters.sortBy === 'upvotes') {
-      filtered.sort((a, b) => b.upvotes - a.upvotes);
-    } else if (filters.sortBy === 'views') {
-      filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
-    } else {
-      filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    }
-
-    return filtered;
+    // Views are now tracked server-side when calling getAAR
+    // This function is kept for backwards compatibility but does nothing
+    console.info('Views are automatically tracked server-side');
   };
 
   const value = {
+    // State
     aars,
+    loading,
+    error,
+    pagination,
+
+    // Methods
+    loadAARs,
     createAAR,
+    getAAR,
     updateAAR,
     deleteAAR,
-    getAAR,
+    searchAARs,
     upvoteAAR,
     downvoteAAR,
     addComment,
-    incrementViews,
-    searchAARs,
+    incrementViews, // Deprecated
   };
 
   return <AARContext.Provider value={value}>{children}</AARContext.Provider>;

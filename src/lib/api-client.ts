@@ -109,21 +109,43 @@ export const api = {
       apiClient.post('/custom-forms/reset', { defaultSchema }),
   },
 
-  // AARs (To be implemented)
+  // AARs
   aars: {
+    /**
+     * List AARs with filtering and pagination
+     * @param params Query parameters (search, category, material, damageType, dateFrom, dateTo, userId, sortBy, page, limit)
+     */
     list: (params?: any) => apiClient.get('/aars', { params }),
+
+    /**
+     * Get single AAR by ID
+     * @param id AAR ID
+     */
     get: (id: string) => apiClient.get(`/aars/${id}`),
-    create: (data: any) => apiClient.post('/aars', data),
-    update: (id: string, data: any) => apiClient.put(`/aars/${id}`, data),
-    delete: (id: string) => apiClient.delete(`/aars/${id}`),
-    uploadPhotos: (aarId: string, files: File[], type: 'before' | 'after') => {
-      const formData = new FormData();
-      files.forEach((file) => formData.append('photos', file));
-      formData.append('type', type);
-      return apiClient.post(`/aars/${aarId}/photos`, formData, {
+
+    /**
+     * Create new AAR with form data and photos
+     * @param formData FormData object containing form data, formId, formVersion, photos, and photoMetadata
+     * @param config Optional axios config for upload progress tracking
+     */
+    create: (formData: FormData, config?: any) =>
+      apiClient.post('/aars', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-      });
-    },
+        ...config,
+      }),
+
+    /**
+     * Update existing AAR (not yet implemented on backend)
+     * @param id AAR ID
+     * @param data Updated data
+     */
+    update: (id: string, data: any) => apiClient.put(`/aars/${id}`, data),
+
+    /**
+     * Soft delete AAR
+     * @param id AAR ID
+     */
+    delete: (id: string) => apiClient.delete(`/aars/${id}`),
   },
 
   // Users

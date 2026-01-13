@@ -237,17 +237,62 @@ const SubmitAAR = () => {
       .sort((a, b) => a.order - b.order);
   };
 
-  const onSubmit = (data) => {
-    // Combine form data with photos
-    const aarData = {
-      userId: currentUser.id,
-      ...data,
-      photos,
-      submittedAt: new Date().toISOString(),
-    };
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [submitError, setSubmitError] = useState(null);
 
-    createAAR(aarData);
-    navigate('/');
+  const onSubmit = async (data) => {
+    setIsSubmitting(true);
+    setUploadProgress(0);
+    setSubmitError(null);
+
+    try {
+      // Build FormData with all form fields + photos
+      const formData = new FormData();
+
+      // Add form data as JSON string
+      formData.append('formData', JSON.stringify(data));
+      formData.append('formId', formSchema.formId || 'aar-form');
+      formData.append('formVersion', formSchema.version || '1.0');
+
+      // Add photo files with field mapping
+      const photoMetadata = {};
+      Object.keys(photos).forEach((fieldId) => {
+        photos[fieldId].forEach((file, index) => {
+          formData.append(`photo_${fieldId}_${index}`, file);
+          if (!photoMetadata[fieldId]) photoMetadata[fieldId] = [];
+          photoMetadata[fieldId].push({
+            filename: file.name,
+            size: file.size,
+            type: file.type,
+          });
+        });
+      });
+
+      formData.append('photoMetadata', JSON.stringify(photoMetadata));
+
+      // Upload with progress tracking
+      const result = await createAAR(formData, {
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          setUploadProgress(percentCompleted);
+        },
+      });
+
+      // Success! Navigate to AAR detail or browse page
+      navigate(result.id ? `/aar/${result.id}` : '/');
+    } catch (error) {
+      console.error('Submission failed:', error);
+      setSubmitError(
+        error.validationErrors
+          ? 'Please fix the validation errors and try again.'
+          : error.message || 'Failed to submit AAR. Please try again.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Show loading state while schema loads
@@ -355,20 +400,53 @@ const SubmitAAR = () => {
           );
         })}
 
+        {/* Error Message */}
+        {submitError && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-red-700 dark:text-red-300">
+            {submitError}
+          </div>
+        )}
+
+        {/* Upload Progress */}
+        {isSubmitting && uploadProgress > 0 && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                Uploading... {uploadProgress}%
+              </span>
+            </div>
+            <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-2">
+              <div
+                className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+
         {/* Submit */}
         <div className="flex justify-end space-x-4">
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="px-6 py-3 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            disabled={isSubmitting}
+            className="px-6 py-3 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {t('common.cancel')}
           </button>
           <button
             type="submit"
-            className="px-6 py-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium transition-colors"
+            disabled={isSubmitting}
+            className="px-6 py-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
-            {t('common.submit')}
+            {isSubmitting ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                Submitting...
+              </>
+            ) : (
+              t('common.submit')
+            )}
           </button>
         </div>
       </form>
